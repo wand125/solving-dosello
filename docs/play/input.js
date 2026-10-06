@@ -20,7 +20,7 @@ export function keyboardMove(state,start,key){
  const c=start%8+delta[0],r=(start>>3)+delta[1];
  return c>=0&&c<8&&r>=0&&r<8?previewMove(state,start,r*8+c):null;
 }
-export function placementEnabled(mode,turn,over=false){return !over&&(mode==='two'||mode==='analysis'||turn===(mode==='black'?1:-1));}
+export function placementEnabled(mode,turn,over=false){return !over&&(mode==='two'||turn===(mode==='black'?1:-1));}
 export function bindPlacement(board,{state,enabled,play,select}){
  let drag=null;
  const point=e=>{const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(board.getScreenCTM().inverse());return {x:(p.x-30)/50,y:(p.y-30)/50};};

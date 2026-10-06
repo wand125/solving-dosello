@@ -28,3 +28,12 @@ test('recommendations cannot be confused with proven best moves',()=>{
 });
 
 test('missing move evaluations never prove an exact move best',()=>{const values=[{move:'a',exact:true,value:2},{move:'b'}];assert.deepEqual(provenBest(values),[]);assert.deepEqual(bestMoves([{move:'a',value:3},{move:'b'}]),['a']);});
+
+import {resolveAnalysis} from '../docs/play/preferences.js';
+test('analysis defaults off; explicit URL overrides saved preference',()=>{
+ for(const [query,saved,expected] of [['',null,false],['','1',true],['','0',false],['?analysis=1','0',true],['?analysis=0','1',false],['?analysis=invalid','1',true]])assert.equal(resolveAnalysis(query,saved),expected);
+});
+test('play modes are AI black, AI white and two players',()=>{
+ const html=readFileSync(new URL('../docs/play/index.html',import.meta.url),'utf8');
+ assert.deepEqual([...html.match(/<select id="mode">(.*?)<\/select>/)[1].matchAll(/value="(.*?)"/g)].map(m=>m[1]),['black','white','two']);
+});

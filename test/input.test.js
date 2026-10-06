@@ -28,6 +28,6 @@ test('keyboard uses legal directional placements; activation keys do nothing',()
  assert.deepEqual(keyboardMove(s,29,'ArrowUp')?.cells,[21,29]);
  for(const [cell,key] of [[21,'Enter'],[21,' '],[7,'ArrowRight'],[0,'ArrowUp'],[63,'ArrowDown'],[0,'ArrowLeft'],[20,'ArrowRight'],[0,'ArrowRight']])assert.equal(keyboardMove(s,cell,key),null);
 });
-test('only human turns accept placement, including analysis and two players',()=>{
- for(const turn of [1,-1]){assert(placementEnabled('analysis',turn));assert(placementEnabled('two',turn));assert.equal(placementEnabled('black',turn),turn===1);assert.equal(placementEnabled('white',turn),turn===-1);assert.equal(placementEnabled('analysis',turn,true),false);}
+test('only human turns accept placement, including two players',()=>{
+ for(const turn of [1,-1]){assert(placementEnabled('two',turn));assert.equal(placementEnabled('black',turn),turn===1);assert.equal(placementEnabled('white',turn),turn===-1);assert.equal(placementEnabled('two',turn,true),false);}
 });

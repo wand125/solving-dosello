@@ -28,11 +28,13 @@ Both pages default to English. **EN | 日本語** switches languages, persists i
 
 ### How to play
 
-Drag from an empty cell toward an orthogonally adjacent cell, then release to place a legal domino. The live preview uses the side’s color for a legal move and a red outline for an illegal move; releasing an illegal placement or cancelling the gesture makes no move. A single tap selects a cell; tapping a second adjacent cell remains available as a fallback. With an empty cell focused, an arrow key places in that direction if legal; Enter/Space do nothing. You can also play a move from the analysis table. Board input is enabled only for the human side (both sides in two-player and analysis modes).
+Analysis is off by default: legal hints stay visible, but evaluations are hidden. Hint outlines one best move until the next move, without values. Turn Analysis on in any mode to show values, best moves, PV and sources. The preference is saved; ?analysis=1 or ?analysis=0 overrides it. Toggling keeps the game and AI search running. On phones, the same Analysis checkbox is also available beside the action buttons, with a 44px touch target.
 
-On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode, AI time, overlay and help. The analysis summary shows the position value and best move or recommendation; expand **Show all moves** for the table and **Game record** for the record and sequence. Board dragging does not scroll the page; scroll from outside the board.
+Drag from an empty cell toward an orthogonally adjacent cell, then release to place a legal domino. The live preview uses the side’s color for a legal move and a red outline for an illegal move; releasing an illegal placement or cancelling the gesture makes no move. A single tap selects a cell; tapping a second adjacent cell remains available as a fallback. With an empty cell focused, an arrow key places in that direction if legal; Enter/Space do nothing. You can also play a move from the analysis table. Board input is enabled only for the human side (both sides in two-player mode).
 
-The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, analysis without AI moves, hints, evaluation overlays, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **E** overlay; input fields retain normal typing behavior.
+On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode, AI time, Analysis and help. The analysis summary shows the position value and best move or recommendation; expand **Show all moves** for the table and **Game record** for the record and sequence. Board dragging does not scroll the page; scroll from outside the board.
+
+The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, hints, optional analysis, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **A** analysis; input fields retain normal typing behavior.
 
 Values are **mover-perspective final disc differences**. Exact values, proven bounds (`≤`, `≥`, intervals) and estimates (`≈`) remain distinct. Yellow outlines mark proven best moves; otherwise the top estimate is labeled **Recommended**, without a guarantee. Current position values use the book when available. Blue outlines identify the last placement.
 
@@ -159,7 +161,7 @@ python3 proof/verify.py
 (cd docs && python3 -m http.server 8000 --bind ::1)
 ```
 
-英語が既定で、右上の EN | 日本語 で切り替えます。選択は保存され、`?lang=ja` / `?lang=en` が優先します。解析専用モード、Redo、手数付き棋譜の選択、着手列の設定・コピーも利用できます。
+英語が既定で、右上の EN | 日本語 で切り替えます。選択は保存され、`?lang=ja` / `?lang=en` が優先します。解析チェックボックス、Redo、手数付き棋譜の選択、着手列の設定・コピーも利用できます。
 
 別ターミナルで `python3 test/http-smoke.py` を実行すると全静的ファイルのHTTP 200を確認できます。
 
@@ -175,9 +177,11 @@ Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必�
 
 ### 遊び方
 
-空きマスから縦横に隣接するマスへドラッグし、離すと合法なドミノを置きます。プレビューは合法なら手番の色、不合法なら赤枠です。不合法な位置で離す、または操作をキャンセルすると着手しません。1回のタップはマスの選択のみで、隣接する2マスを順にタップする代替操作も使えます。空きマスにフォーカスして矢印キーを押すと、その方向の合法手を置きます。Enter/Spaceは何もしません。解析表の手を選んでも着手できます。盤面入力は人間の手番のみ有効です（2人対局・解析では両色）。
+解析は既定でオフです。合法手の目印は表示し、評価は隠します。ヒントは次の着手まで最善候補1手だけを黄色で囲み、値は表示しません。どのモードでも解析をオンにすると評価・最善手・主変化・情報源を表示します。設定は保存され、?analysis=1 / ?analysis=0 が優先します。切り替えても対局やAI探索は継続します。スマートフォンでは設定内と操作ボタンのそばの両方に「解析」があり、44px以上のタッチ領域で操作できます。ショートカットは N 新規、U / ← 戻す、→ 進む、H ヒント、A 解析です。
 
-スマートフォンでは盤面の下に「新規・戻す・進む・ヒント」を配置しています。「設定」でモード、AI時間、評価表示、ヘルプを開きます。解析は局面評価と最善手・推奨手を表示し、「すべての手を表示」で表を、「棋譜」で着手履歴と着手列を開けます。盤面のドラッグではページをスクロールしないため、スクロールは盤面の外で行ってください。
+空きマスから縦横に隣接するマスへドラッグし、離すと合法なドミノを置きます。プレビューは合法なら手番の色、不合法なら赤枠です。不合法な位置で離す、または操作をキャンセルすると着手しません。1回のタップはマスの選択のみで、隣接する2マスを順にタップする代替操作も使えます。空きマスにフォーカスして矢印キーを押すと、その方向の合法手を置きます。Enter/Spaceは何もしません。解析表の手を選んでも着手できます。盤面入力は人間の手番のみ有効です（2人対局では両色）。
+
+スマートフォンでは盤面の下に「新規・戻す・進む・ヒント」を配置しています。「設定」でモード、AI時間、解析、ヘルプを開きます。解析は局面評価と最善手・推奨手を表示し、「すべての手を表示」で表を、「棋譜」で着手履歴と着手列を開けます。盤面のドラッグではページをスクロールしないため、スクロールは盤面の外で行ってください。
 
 ## 完全プレイの棋譜
 

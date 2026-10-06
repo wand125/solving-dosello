@@ -19,7 +19,7 @@ async function until(expression){for(let i=0;i<100;i++){if(await evaluate(expres
 async function navigate(path){await call('Page.navigate',{url:new URL(path,url).href});await until("document.readyState==='complete'");}
 async function center(cell){await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');return evaluate(`(()=>{const r=document.querySelector('[data-cell="${cell}"]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);}
 async function mouse(type,p,pointerType='mouse'){await call('Input.dispatchMouseEvent',{type,pointerType,...p,button:type==='mouseMoved'?'none':'left',buttons:type==='mouseReleased'?0:1,clickCount:1});}
-async function reset(){await evaluate("document.querySelector('#mode').value='analysis';document.querySelector('#mode').dispatchEvent(new Event('change'));document.querySelector('#new').click()");await until("document.querySelectorAll('#moves tr.best').length===2");}
+async function reset(){await evaluate("document.querySelector('#mode').value='two';document.querySelector('#mode').dispatchEvent(new Event('change'));document.querySelector('#new').click()");await until("document.querySelectorAll('#moves tr.best').length===2");}
 async function gesture(a,b,{legal=true,cancel=false,touch=false,pen=false}={}){
  await evaluate('scrollTo(0,0)');
  const start=await center(a),end=await center(b);
@@ -40,12 +40,38 @@ async function gesture(a,b,{legal=true,cancel=false,touch=false,pen=false}={}){
 try{
  const target=await call('Target.createTarget',{url:'about:blank'},null);session=(await call('Target.attachToTarget',{targetId:target.targetId,flatten:true},null)).sessionId;
  await call('Page.enable');await call('Runtime.enable');await call('Log.enable');
- await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr').length===20 && document.querySelector('#position-value').textContent==='Exact +2'");
+ await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr').length===20");
+ assert.equal(await evaluate("document.querySelector('#analysis').checked"),false);
+ assert.equal(await evaluate("document.querySelectorAll('#board .eval-label, #board rect[stroke=\"#d4a900\"]').length"),0);
+ await navigate('play/?lang=en&analysis=1');await until("document.querySelectorAll('#moves tr').length===20 && document.querySelector('#position-value').textContent==='Exact +2'");
  assert.equal(await evaluate("document.documentElement.lang"),'en');
+ assert.deepEqual(await evaluate("[...document.querySelector('#mode').options].map(o=>o.value)"),['black','white','two']);
+ const hidden = "document.querySelectorAll('#board .eval-label, #board rect[stroke=\"#d4a900\"], #moves .best, #moves small').length===0 && [...document.querySelectorAll('#moves tr')].every(r=>r.children.length===1) && [...document.querySelectorAll('[data-analysis-only]')].every(e=>e.hidden) && document.querySelector('#position-value').textContent==='' && document.querySelector('#best-move').textContent==='' && document.querySelector('#source').textContent===''";
+ await evaluate("document.querySelector('#analysis').click()");
+ assert(await evaluate(hidden));
+ assert.equal(await evaluate("localStorage.getItem('dosello-analysis')"),'0');
+ await evaluate("document.querySelector('#mode').value='two';document.querySelector('#mode').dispatchEvent(new Event('change'))");
+ await until("!document.querySelector('#hint').disabled");
+ await evaluate("document.querySelector('#hint').click()");
+ assert.equal(await evaluate("document.querySelectorAll('#board rect[stroke=\"#d4a900\"]').length"),1);
+ assert.equal(await evaluate("document.querySelectorAll('#board .eval-label, #moves small').length"),0);
+ assert.doesNotMatch(await evaluate("document.querySelector('#status').textContent"),/[a-h][1-8]|[+≈≤≥]/);
+ await evaluate("document.querySelector('#moves button').click()");
+ assert(await evaluate(hidden));
+ await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr').length===20");
+ assert(await evaluate(hidden));
+ await navigate('play/?lang=en&analysis=1');await until("document.querySelectorAll('#moves tr.best').length===2");
+ assert.equal(await evaluate("document.querySelector('#analysis').checked"),true);
+ await evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'a',bubbles:true}))");assert(await evaluate(hidden));
+ await evaluate("document.querySelector('#analysis-quick').click()");
+ assert.equal(await evaluate("document.querySelector('#analysis').checked && localStorage.getItem('dosello-analysis')==='1'"),true);
+ await navigate('play/?lang=en&analysis=0');await until("document.querySelectorAll('#moves tr').length===20");assert(await evaluate(hidden));
+ await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr.best').length===2");
+
  assert.match(await evaluate("[...document.querySelectorAll('#moves tr')].find(r=>r.querySelector('button').textContent==='f3-f4').textContent"),/\+2Exact/);
  assert.equal(await evaluate("document.querySelectorAll('#board rect[stroke=\"#d4a900\"]').length"),2);
  assert.deepEqual(await evaluate("[...document.querySelectorAll('#moves tr.best button')].map(x=>x.textContent).sort()"),['c5-c6','f3-f4']);
- await evaluate("document.querySelector('#mode').value='analysis';document.querySelector('#mode').dispatchEvent(new Event('change'));document.querySelector('#sequence').value='f3-f4 e6-f6 d7-e7';document.querySelector('#apply').click()");await until("document.querySelectorAll('#record button').length===4");
+ await evaluate("document.querySelector('#mode').value='two';document.querySelector('#mode').dispatchEvent(new Event('change'));document.querySelector('#sequence').value='f3-f4 e6-f6 d7-e7';document.querySelector('#apply').click()");await until("document.querySelectorAll('#record button').length===4");
  await evaluate("document.querySelector('#undo').click()");assert.equal(await evaluate("document.querySelector('#sequence').value"),'f3-f4 e6-f6');
  await evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))");assert.equal(await evaluate("document.querySelector('#sequence').value"),'f3-f4 e6-f6 d7-e7');
  await evaluate("document.querySelectorAll('#record button')[1].click()");assert.equal(await evaluate("document.querySelector('#sequence').value"),'f3-f4');
@@ -62,10 +88,12 @@ try{
  await evaluate("document.querySelector('#pv-first').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Initial position/);
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
  await call('Emulation.clearDeviceMetricsOverride');
- await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr.best').length===2");
+ await navigate('play/?lang=en&analysis=1');await until("document.querySelectorAll('#moves tr.best').length===2");
  await evaluate("[...document.querySelectorAll('#moves button')].find(b=>b.textContent==='f3-f4').click()");await until("document.querySelectorAll('#record button').length>=3");
  await evaluate("document.querySelector('#undo').click()");assert.equal(await evaluate("document.querySelector('#sequence').value"),'');
- await evaluate("document.querySelector('#mode').value='white';document.querySelector('#mode').dispatchEvent(new Event('change'))");await until("document.querySelector('#sequence').value.length>0");
+ // Toggle twice during an AI turn: no worker restart/termination or game reset.
+ assert(await evaluate(`(()=>{const NativeWorker=window.Worker;let starts=0,stops=0;window.Worker=class extends NativeWorker{constructor(...args){super(...args);starts++;}terminate(){stops++;super.terminate();}};document.querySelector('#mode').value='white';document.querySelector('#mode').dispatchEvent(new Event('change'));const before=[starts,stops,document.querySelector('#sequence').value];document.querySelector('#analysis').click();document.querySelector('#analysis-quick').click();const unchanged=JSON.stringify(before)===JSON.stringify([starts,stops,document.querySelector('#sequence').value]);window.Worker=NativeWorker;return unchanged;})()`));
+ await until("document.querySelector('#sequence').value.length>0");
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
  await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
  assert(await evaluate("document.querySelector('aside').getBoundingClientRect().top>=document.querySelector('.board-area').getBoundingClientRect().bottom"));
@@ -93,7 +121,7 @@ try{
   await evaluate("for(const id of ['settings','move-details','record-details'])document.getElementById(id).open=false");
   assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
   assert(await evaluate("(()=>{const r=document.querySelector('#board').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&Math.abs(r.width-r.height)<1})()"));
-  assert(await evaluate("[...document.querySelectorAll('.actions button')].every(b=>b.getBoundingClientRect().height>=44)"));
+  assert(await evaluate("[...document.querySelectorAll('.actions button, .actions .analysis-toggle')].every(b=>b.getBoundingClientRect().height>=44 && b.getBoundingClientRect().width>=44)"));
   assert.equal(await evaluate("getComputedStyle(document.querySelector('#board')).touchAction"),'none');
   await evaluate("document.querySelector('#move-details').open=true;document.querySelector('#record-details').open=true;document.querySelector('#settings').open=true");
   assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
@@ -109,5 +137,5 @@ try{
  await call('Emulation.clearDeviceMetricsOverride');
  await call('Emulation.setScriptExecutionDisabled',{value:true});await navigate('?lang=en');assert.equal(await evaluate('document.documentElement.lang'),'en');assert.match(await evaluate("document.querySelector('#strength').textContent"),/194 wins/);
  assert.deepEqual(errors.filter(e=>!e.includes('favicon')),[]);
- console.log('PASS browser: CSP/WASM/Worker, 20 moves, book +2, best outlines, sequence, undo/redo, record jump, both AI colors, language persistence/override, translated PV, mouse/touch/pen drag and cancellation, illegal preview, keyboard placement, AI gating, portrait and landscape layouts');
+ console.log('PASS browser: analysis visibility, single-move hint, preference/URL/shortcut, uninterrupted AI, CSP/WASM/Worker, 20 moves, book +2, best outlines, sequence, undo/redo, record jump, both AI colors, language persistence/override, translated PV, mouse/touch/pen drag and cancellation, illegal preview, keyboard placement, AI gating, portrait and landscape layouts');
 }finally{clearTimeout(deadline);await call('Browser.close',{},null).catch(()=>{});chrome.kill();await new Promise(r=>setTimeout(r,500));rmSync(profile,{recursive:true,force:true});}
