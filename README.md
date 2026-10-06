@@ -1,11 +1,134 @@
 # DOSELLO is Solved
 
+The standard initial position of DOSELLO is **Black +2** with perfect play. The optimal openings are **f3-f4 / c5-c6**, related by 180° rotation. The verified PV starts **f3-f4 e6-f6 d7-e7**.
+
+This repository, **wand125/solving-dosello**, contains an independent Rust/JavaScript engine, a sanitized distributed-search certificate, a fully bilingual research paper and a WebAssembly analysis tool. This revision is local only; no remote repository, push or Pages deployment was performed.
+
+- Paper: https://wand125.github.io/solving-dosello/
+- Analyzer: https://wand125.github.io/solving-dosello/play/
+- [Proof format and verification](proof/README.md), [saved verification report](proof/verification.txt)
+- [Validation](VALIDATION.md), [measurement provenance](docs/data/README.md)
+
+## Build, test and run locally
+
+Use Rust, Python 3 and Node.js 22 or newer. There are no external crate or npm dependencies. Run from the repository root:
+
+```sh
+export CARGO_TARGET_DIR="$PWD/rust/target"
+cargo build --release --offline --manifest-path rust/Cargo.toml
+cargo test --release --offline --manifest-path rust/Cargo.toml
+DOSELLO_OFFLINE=1 npm test
+python3 proof/verify.py
+(cd docs && python3 -m http.server 8000 --bind ::1)
+```
+
+For local use, open `http://localhost:8000/` or `http://localhost:8000/play/`. In another terminal run `python3 test/http-smoke.py` to check HTTP 200 for all assets and both routes. Optional headless browser validation uses an installed Chromium browser: `node test/browser-smoke.js /path/to/chromium http://[::1]:8000/` while the local server is running.
+
+Both pages default to English. **EN | 日本語** switches languages, persists in localStorage and updates page language, title and description. `?lang=ja` / `?lang=en` overrides the saved preference. The English paper remains readable without JavaScript.
+
+The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, analysis without AI moves, hints, evaluation overlays, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **E** overlay; input fields retain normal typing behavior.
+
+Values are **mover-perspective final disc differences**. Exact values, proven bounds (`≤`, `≥`, intervals) and estimates (`≈`) remain distinct. Yellow outlines mark proven best moves; otherwise the top estimate is labeled **Recommended**, without a guarantee. Current position values use the book when available. Blue outlines identify the last placement.
+
+The bundled WASM runs in a Worker without shared memory, COOP/COEP, external dependencies or tracking. Both pages have a self-only CSP, including `wasm-unsafe-eval` for WebAssembly compilation. Inline styles are permitted only for the paper's existing stylesheet; scripts remain external and self-only. Deploy only `docs/` to Pages; all runtime asset paths are relative.
+
+Rebuild the bundled WASM with an already installed `wasm32-unknown-unknown` Rust target:
+
+```sh
+bash rust/tools/build-wasm.sh
+```
+
+This also updates the demo rules copy. The approximately 5.6 MB compact book was previously generated; large journals and sharded books are excluded. The full book-learning process is not reproducible from this subset. A proof-only book can be regenerated with `rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json`; it is not identical to the bundled full compact book.
+
+## Proof and measurements
+
+The certificate records computation on October 5, 2026, 13:00–23:03 JST: 758 positions, 456 jobs covering 331 distinct targets, zero recorded failures, 6,736,132,485,239 searched nodes and about 237.34 allocated thread-hours. Search machines were Ryzen 9 9950X (22 threads), Core i9-9980HK (14) and Apple M1 (6), with a separate non-searching coordinator.
+
+`proof/verify.py` checks legal transitions through Rust and reconstructs negamax intervals. **It trusts saved leaf solver results and does not independently re-solve them.** The 374 unknown-interval leaves do not prevent the root from being exact. Raw job results are included. Host anonymization changed the archive hash; position IDs, search values, nodes and times were preserved.
+
+```sh
+python3 proof/summarize.py
+rust/target/release/game_stats 100000 5
+```
+
+The 100,000 random games average 24.86827 placements. Branching-factor products suggest a rough game-tree scale of 10²⁴·⁴–10²⁴·⁶. Distinct positions are exhaustively enumerated through five placements; later extrapolations are exploratory, not reliable counts of all reachable positions.
+
+## Strength: reproduced by command
+
+The **194–0–6** result against the original site's level-5 CPU was produced in the source project with:
+
+```sh
+match_eval 200 500 site5 4
+```
+
+This means **200 games, 500 ms/move, 4 threads, first four plies random, paired colors, no opening book**. The experiment owner confirms that the site CPU is a faithful reimplementation of the original level-5 `choose()`, cross-checked against original `game.js`. This is a reproduced-by-command result. The separately preserved [100 ms result](docs/data/match-site5-100ms.json) is 191–1–8.
+
+The public equivalent harness uses the original CPU directly through the optional test adapter, avoiding redistribution of a CPU clone:
+
+```sh
+DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4
+# Optional, network-enabled original-code acquisition by the user:
+DOSELLO_OFFLINE=0 node test/match_eval.js 200 500 site5 4 > match-result.json
+```
+
+It uses the native `rust/target/release/analyze` binary with the requested time and threads, no book, a fixed seed and paired openings. It skips successfully if the original code is unavailable. The original experiment's precise random stream is not archived here; timing, random choices and use of the original adapter may change the score. The full match was not rerun during this offline revision. Fixed-depth site CPU versus time-limited search is not an equal-time comparison, and match results do not prove the solved value.
+
+## Distributed solving
+
+Small local tests do not use SSH:
+
+```sh
+python3 rust/dist/selftest.py --binary rust/target/release/job
+python3 rust/dist/test_dist.py
+python3 rust/dist/test_tree.py
+```
+
+For your own machines, copy the generic five-slot configuration (2×11, 2×7, 1×6) and edit hosts, memory and thread budgets. The following deployment commands use SSH/rsync and were not run during this revision:
+
+```sh
+cp rust/dist/hosts.example.json rust/dist/hosts.json
+# Edit hosts.json before deploying.
+bash rust/dist/deploy.sh host-a
+bash rust/dist/deploy.sh host-b
+bash rust/dist/deploy.sh host-c
+python3 rust/dist/coordinator.py --hosts rust/dist/hosts.json --dry-run
+python3 rust/dist/coordinator.py --hosts rust/dist/hosts.json \
+  --state rust/dist/state.json --proof rust/dist/computed-proof.json \
+  --split-depth 3 --split-empties 50
+python3 rust/dist/status.py --state rust/dist/state.json
+```
+
+Resume with the same state. Generated certificates use a different path from the shipped proof. `tree.py` / `tree_status.py` extend solution trees for both colors after solving the root; consult each tool's `--help`. Check generated books and state files for size and private configuration before publication.
+
+## Optional original comparison and licensing
+
+[Original DOSELLO](https://game2.raku-watanabe.com) is a third-party work. Its game code, HTML, CSS, images, favicon and CPU clone are not distributed. The test-only adapter fetches `game.js` into ignored `.cache/original/` only when online mode is allowed. `DOSELLO_OFFLINE=1` prohibits acquisition; missing original assets produce SKIP. Never commit downloaded assets. Changes to the original can affect compatibility.
+
+```sh
+# Optional network-enabled comparison, not run online in this revision:
+DOSELLO_OFFLINE=0 bash rust/tools/crosscheck.sh
+```
+
+```text
+engine/  Independent JavaScript rules and AI
+rust/    Rust engine, inference weights, distributed tools and tests
+proof/   Sanitized certificate, raw job results, verifier and summaries
+docs/    Bilingual paper, analyzer and measurement data
+test/    Independent tests and optional original-code comparison
+```
+
+Original code and documentation in this project use [MIT](LICENSE), with **wand125** as the current copyright identity pending publication confirmation. Original DOSELLO remains its creator's work and is outside this license. No affiliation or endorsement is implied. Othello comparison values are supplied reports attributed to the cited paper and were not fetched again during offline staging.
+
+---
+
+# 日本語
+
 DOSELLOの標準初期局面のゲーム理論値は **黒 +2**。最善初手は **f3-f4 / c5-c6**（180°回転対称）、確認したPVの先頭は **f3-f4 e6-f6 d7-e7** です。
 
 独自Rust/JavaScriptエンジン、保存済み分散探索の証明木、日英の研究ページ、新規にデザインしたWASM対局デモをまとめた公開準備リポジトリです。現状は **ローカルステージングのみ**。GitHubリポジトリ作成・push・Pages公開は実施していません。
 
-- 論文ページ（公開予定）：https://wand125.github.io/dosello/
-- 対局デモ（公開予定）：https://wand125.github.io/dosello/play/
+- 論文ページ（公開予定）：https://wand125.github.io/solving-dosello/
+- 対局デモ（公開予定）：https://wand125.github.io/solving-dosello/play/
 - [証明の形式と検査](proof/README.md)・[検証報告](proof/verification.txt)
 - [公開準備の検査結果](VALIDATION.md)
 
@@ -19,8 +142,10 @@ cargo build --release --offline --manifest-path rust/Cargo.toml
 cargo test --release --offline --manifest-path rust/Cargo.toml
 DOSELLO_OFFLINE=1 npm test
 python3 proof/verify.py
-python3 -m http.server 8000 --directory docs
+(cd docs && python3 -m http.server 8000 --bind ::1)
 ```
+
+英語が既定で、右上の EN | 日本語 で切り替えます。選択は保存され、`?lang=ja` / `?lang=en` が優先します。解析専用モード、Redo、手数付き棋譜の選択、着手列の設定・コピーも利用できます。
 
 別ターミナルで `python3 test/http-smoke.py` を実行すると全静的ファイルのHTTP 200を確認できます。
 
@@ -47,7 +172,7 @@ rust/target/release/game_stats 100000 5
 
 10万局のランダム対局は平均24.86827配置。棋譜数の分岐数積は約10²⁴·⁴〜10²⁴·⁶の粗い推定です。局面数は5手目まで全列挙し、その後の参考外挿は信頼できる全局面数とは区別しています。[生集計と方法](docs/data/README.md)を参照してください。
 
-対原作レベル5の194勝0分6敗（500ms/手）は依頼時に提示された成績で、生ファイルは確認できていません。別条件の保存結果191勝1分8敗（100ms/手）を同梱しています。論文のOthello比較値も依頼時提示値で、今回のオフライン作業では外部原典の再取得・照合をしていません。
+対原作レベル5の194勝0分6敗は元プロジェクトの `match_eval 200 500 site5 4` による再現結果です。200局、500ms/手、4スレッド、初めの4手をランダム化した色入替ペア対局、定石なし。相手は原作 `choose()` レベル5の忠実な再実装で、原作 `game.js` と照合済みと実験実施者が確認しています。公開版の同等ツールは `DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4`。原作がない場合はSKIPします。利用者がネットワークを許可する場合だけ `DOSELLO_OFFLINE=0` で任意取得できます。今回は200局の再実行はしていません。元の乱数列は同梱しておらず、時間・乱数条件により結果は変動します。別条件の保存結果191勝1分8敗（100ms/手）を同梱しています。論文のOthello比較値も依頼時提示値で、今回のオフライン作業では外部原典の再取得・照合をしていません。
 
 ## Distributed solving
 
@@ -100,7 +225,3 @@ test/         独自コードの検査と任意の外部オラクル照合
 ```
 
 独自コード・文書は [MIT](LICENSE)。著作権者は **wand125（公開前のユーザー確認待ち）** としています。差し替える場合はLICENSEの著作権行とページの表記を更新してください。原作DOSELLOの権利は原作者に帰属し、**このMITライセンスには含まれません**。原作との提携・公認を意味しません。
-
-## English summary
-
-The standard initial position of DOSELLO has value **+2 for Black**. The optimal first moves are **f3-f4 / c5-c6**. This staging repository contains an independent Rust/JS engine, a sanitized proof archive, a Japanese research page with an English abstract, and a new playable WASM demo. The consistency checker validates legal transitions and interval propagation but trusts the saved leaf solver results. Original third-party assets are not distributed. MIT applies to this project's own work only. This repository has been prepared locally; nothing has been published or pushed.
