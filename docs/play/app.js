@@ -49,9 +49,13 @@ function refresh(){
   if(id!==generation||data.id!==id)return;
   if(data.kind==='error'){busy=false;status('error');draw();return;}
   book=data.book;result=data.result??null;const merged=new Map(mergeValues(book,result).map(m=>[m.move,m]));analysis=legalMoves(state()).map(m=>merged.get(formatMove(m))??{move:formatMove(m)});best=bestMoves(analysis);
-  if(data.kind==='book'){if(data.bookError)status('bookError');draw();return;}
+  // A proven best move from the book is played at once; search only decides outside proven positions.
+  const proven=provenBest(analysis);
+  if(data.kind==='book'){
+   if(!human()&&!paused&&proven.length){const m=legalMoves(state()).find(m=>formatMove(m)===proven[0]);if(m){cancel();play(m);return;}}
+   if(data.bookError)status('bookError');draw();return;}
   busy=false;
-  if(!human()&&!paused){const name=result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
+  if(!human()&&!paused){const name=proven[0]??result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
   else status(paused?'paused':data.bookError?'bookError':'idle');draw();
  };
  worker.postMessage({id,position:toOriginal(state()),timeMs:Number($('time').value),bestOnly:!human()&&!paused});

@@ -79,7 +79,7 @@ DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4
 DOSELLO_OFFLINE=0 node test/match_eval.js 200 500 site5 4 > match-result.json
 ```
 
-It uses the native `rust/target/release/analyze` binary with the requested time and threads, no book, a fixed seed and paired openings. It skips successfully if the original code is unavailable. The original experiment's precise random stream is not archived here; timing, random choices and use of the original adapter may change the score. The full match was not rerun during this offline revision. Fixed-depth site CPU versus time-limited search is not an equal-time comparison, and match results do not prove the solved value.
+It uses the native `rust/target/release/analyze` binary with the requested time and threads, no book, a fixed seed and paired openings. It skips successfully if the original code is unavailable. The original experiment's precise random stream is not archived here; timing, random choices and use of the original adapter may change the score. The match was run on 2026-10-06. Fixed-depth site CPU versus time-limited search is not an equal-time comparison, and match results do not prove the solved value.
 
 ## Distributed solving
 
@@ -125,7 +125,7 @@ docs/    Bilingual paper, analyzer and measurement data
 test/    Independent tests and optional original-code comparison
 ```
 
-Original code and documentation in this project use [MIT](LICENSE), with **wand125** as the current copyright identity pending publication confirmation. Original DOSELLO remains its creator's work and is outside this license. No affiliation or endorsement is implied. Othello comparison values are supplied reports attributed to the cited paper and were not fetched again during offline staging.
+Original code and documentation in this project use [MIT](LICENSE), copyright © 2026 Hiroaki Hosono (@wand125). Original DOSELLO remains its creator's work and is outside this license. No affiliation or endorsement is implied. Othello comparison values are quoted from the cited paper (arXiv version).
 
 ---
 
@@ -135,8 +135,8 @@ DOSELLOの標準初期局面のゲーム理論値は **黒 +2**。最善初手�
 
 独自Rust/JavaScriptエンジン、保存済み分散探索の証明木、日英の研究ページ、新規にデザインしたWASM対局デモをまとめた公開準備リポジトリです。現状は **ローカルステージングのみ**。GitHubリポジトリ作成・push・Pages公開は実施していません。
 
-- 論文ページ（公開予定）：https://wand125.github.io/solving-dosello/
-- 対局デモ（公開予定）：https://wand125.github.io/solving-dosello/play/
+- 論文ページ：https://wand125.github.io/solving-dosello/
+- 対局デモ：https://wand125.github.io/solving-dosello/play/
 - [証明の形式と検査](proof/README.md)・[検証報告](proof/verification.txt)
 - [公開準備の検査結果](VALIDATION.md)
 
@@ -188,7 +188,7 @@ rust/target/release/game_stats 100000 5
 
 10万局のランダム対局は平均24.86827配置で、長さ・分岐数は記述統計です。局面には色・ドミノの組・手番を含み、手数は強制パスを数えます。0〜7手は全列挙、8〜11手は経路多重度を補正した不偏MC推定（11手：2.2775e12 [2.1087e12, 2.4462e12]、95%信頼区間）。12手以降は多重度計数が困難なため境界のみ。全到達局面数は未確定で、厳密下界132,473,902、証明済み組合せ論的上界2.2575e21（最大8つの盤面対称性D4で同一視すると5.6437e20）。100万完全対局・シード20261006のKnuth推定は全棋譜接頭辞1.0336e26 [1.0001e26, 1.0672e26]、終局棋譜3.5573e25 [3.4409e25, 3.6736e25]（95%信頼区間）。[生集計と方法](docs/data/README.md)を参照してください。
 
-対原作レベル5の194勝0分6敗は元プロジェクトの `match_eval 200 500 site5 4` による再現結果です。200局、500ms/手、4スレッド、初めの4手をランダム化した色入替ペア対局、定石なし。相手は原作 `choose()` レベル5の忠実な再実装で、原作 `game.js` と照合済みと実験実施者が確認しています。公開版の同等ツールは `DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4`。原作がない場合はSKIPします。利用者がネットワークを許可する場合だけ `DOSELLO_OFFLINE=0` で任意取得できます。今回は200局の再実行はしていません。元の乱数列は同梱しておらず、時間・乱数条件により結果は変動します。別条件の保存結果191勝1分8敗（100ms/手）を同梱しています。論文のOthello比較値も依頼時提示値で、今回のオフライン作業では外部原典の再取得・照合をしていません。
+対原作レベル5の194勝0分6敗は元プロジェクトの `match_eval 200 500 site5 4` による再現結果です。200局、500ms/手、4スレッド、初めの4手をランダム化した色入替ペア対局、定石なし。相手は原作 `choose()` レベル5の忠実な再実装で、原作 `game.js` と照合済みと実験実施者が確認しています。公開版の同等ツールは `DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4`。原作がない場合はSKIPします。利用者がネットワークを許可する場合だけ `DOSELLO_OFFLINE=0` で任意取得できます。今回は200局の再実行はしていません。元の乱数列は同梱しておらず、時間・乱数条件により結果は変動します。別条件の保存結果191勝1分8敗（100ms/手）を同梱しています。オセロの比較値は引用論文（arXiv版）から引用しています。
 
 ## Distributed solving
 
@@ -240,4 +240,4 @@ docs/         静的論文ページ、新規WASM対局デモ、集計データ
 test/         独自コードの検査と任意の外部オラクル照合
 ```
 
-独自コード・文書は [MIT](LICENSE)。著作権者は **wand125（公開前のユーザー確認待ち）** としています。差し替える場合はLICENSEの著作権行とページの表記を更新してください。原作DOSELLOの権利は原作者に帰属し、**このMITライセンスには含まれません**。原作との提携・公認を意味しません。
+独自コード・文書は [MIT](LICENSE)。著作権者は Hiroaki Hosono (@wand125) です。原作DOSELLOの権利は原作者に帰属し、**このMITライセンスには含まれません**。原作との提携・公認を意味しません。
