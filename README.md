@@ -32,9 +32,15 @@ Analysis is off by default: legal hints stay visible, but evaluations are hidden
 
 Drag from an empty cell toward an orthogonally adjacent cell, then release to place a legal domino. The live preview uses the side’s color for a legal move and a red outline for an illegal move; releasing an illegal placement or cancelling the gesture makes no move. A single tap selects a cell; tapping a second adjacent cell remains available as a fallback. With an empty cell focused, an arrow key places in that direction if legal; Enter/Space do nothing. You can also play a move from the analysis table. Board input is enabled only for the human side (both sides in two-player mode).
 
-On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode, AI time, Analysis and help. The analysis summary shows the position value and best move or recommendation; expand **Show all moves** for the table and **Game record** for the record and sequence. Board dragging does not scroll the page; scroll from outside the board.
+On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode, Analysis and help. The analysis summary shows the position value and best move or recommendation; expand **Show all moves** for the table and **Game record** for the record and sequence. Board dragging does not scroll the page; scroll from outside the board.
 
 The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, hints, optional analysis, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **A** analysis; input fields retain normal typing behavior.
+
+The AI thinks 3 seconds per move outside the opening book. Proven book moves are played immediately.
+
+**Review** opens automatically at game end, or on demand for all moves played. With Analysis off, an ongoing game asks once before revealing answers. Book proofs appear first, then targeted WASM endgame proofs, then estimates (about 1 second per position on desktop / 0.5 seconds on phones). Exact attempts have a 2-second / 1-second position budget; timeouts retain bounds or fall back to estimates. The exact threshold defaults to 30 empty cells (26 on phones); `?reviewEmpties=24` overrides it. Review never automatically runs during play.
+
+Each row shows best and played values from the mover’s perspective, best move(s), and disc loss: exact, proven bound, or `≈` estimate. A proven positive loss counts as a mistake. Color uses the guaranteed minimum for bounds; estimates use hatching. Side totals are proven minimum losses, excluding estimates; the first decisive mistake requires proven win/draw/loss categories before and after the move. Select a row to return **before** the move and retry, with yellow outlines even when Analysis is off; **Back to end** returns to the last position. Your moves are bold in AI games. On phones the collapsible review occupies the full width below the board. Closing it, starting a new game, importing a record, or retrying cancels the Worker. Completed and partial results are cached for the page session by D4-canonical position (including domino pairing and side) and played move; completed reviews reopen immediately.
 
 Values are **mover-perspective final disc differences**. Exact values, proven bounds (`≤`, `≥`, intervals) and estimates (`≈`) remain distinct. Yellow outlines mark proven best moves; otherwise the top estimate is labeled **Recommended**, without a guarantee. Current position values use the book when available. Blue outlines identify the last placement.
 
@@ -181,7 +187,13 @@ Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必�
 
 空きマスから縦横に隣接するマスへドラッグし、離すと合法なドミノを置きます。プレビューは合法なら手番の色、不合法なら赤枠です。不合法な位置で離す、または操作をキャンセルすると着手しません。1回のタップはマスの選択のみで、隣接する2マスを順にタップする代替操作も使えます。空きマスにフォーカスして矢印キーを押すと、その方向の合法手を置きます。Enter/Spaceは何もしません。解析表の手を選んでも着手できます。盤面入力は人間の手番のみ有効です（2人対局では両色）。
 
-スマートフォンでは盤面の下に「新規・戻す・進む・ヒント」を配置しています。「設定」でモード、AI時間、解析、ヘルプを開きます。解析は局面評価と最善手・推奨手を表示し、「すべての手を表示」で表を、「棋譜」で着手履歴と着手列を開けます。盤面のドラッグではページをスクロールしないため、スクロールは盤面の外で行ってください。
+スマートフォンでは盤面の下に「新規・戻す・進む・ヒント」を配置しています。「設定」でモード、解析、ヘルプを開きます。解析は局面評価と最善手・推奨手を表示し、「すべての手を表示」で表を、「棋譜」で着手履歴と着手列を開けます。盤面のドラッグではページをスクロールしないため、スクロールは盤面の外で行ってください。
+
+AIは定石の外では1手3秒考えます。証明済みの定石手は即座に指します。
+
+「振り返り」は終局時に自動で開き、対局途中でもボタンから開けます。解析オフの対局途中では、最善手を表示する前に一度確認します。定石の証明を先に表示し、次にWASMの終盤求解、最後に推定（PCでは1局面約1秒、スマートフォンでは約0.5秒）を計算します。終盤求解の上限時間は1局面2秒／1秒で、時間切れなら境界値を保持するか推定に移ります。求解対象は空き30マス以下（スマートフォンは26以下）で、`?reviewEmpties=24` で変更できます。対局中に自動実行はしません。
+
+各行には手番側から見た最善値・着手の値・最善手・損失を表示し、確定・証明済み区間・推定（≈）を区別します。正の損失を証明できた手をミスと数え、境界値の色は保証された最小損失を使い、推定は斜線で区別します。色別合計は推定を除く証明済み最小損失、最初の勝敗変化は着手前後の証明済みの勝ち／引き分け／負けから判定します。行を選ぶと着手前に戻って再挑戦でき、解析オフでも黄色の候補を表示します。「棋譜の最後へ」で戻れます。AI対局の自分の手は太字です。スマートフォンでは盤面下の全幅の折り畳み欄になります。閉じる・新規対局・棋譜読み込み・再挑戦で計算を中止します。結果は盤面対称性・ドミノの組・手番を含む局面と着手をキーにページ内で保存し、完了した振り返りは即座に再表示します。
 
 ## 完全プレイの棋譜
 

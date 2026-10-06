@@ -37,3 +37,12 @@ test('play modes are AI black, AI white and two players',()=>{
  const html=readFileSync(new URL('../docs/play/index.html',import.meta.url),'utf8');
  assert.deepEqual([...html.match(/<select id="mode">(.*?)<\/select>/)[1].matchAll(/value="(.*?)"/g)].map(m=>m[1]),['black','white','two']);
 });
+
+test('AI time is fixed and review controls are translated without inline handlers',()=>{
+ const html=readFileSync(new URL('../docs/play/index.html',import.meta.url),'utf8');
+ const app=readFileSync(new URL('../docs/play/app.js',import.meta.url),'utf8');
+ assert.doesNotMatch(html,/id="time"|data-i18n="time"/);assert.match(app,/timeMs:3000/);
+ assert(!('time' in dictionaries.en));assert(!('time' in dictionaries.ja));
+ for(const id of ['review','review-panel','review-rows','review-end','review-close'])assert(html.includes(`id="${id}"`));
+ assert.doesNotMatch(html,/\sonclick=/);
+});

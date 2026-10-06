@@ -856,3 +856,10 @@ mod packed_tests {
 pub(crate) fn distributed_execute<R: Send>(o: &Options, deadline: f64, f: impl FnOnce(&mut Search) -> R) -> (R, u64) {
     parallel::execute(o.tt_entries, o.threads, deadline, f)
 }
+
+/// Review needs only the played child's value, not values for all its replies.
+pub fn exact_value_json(p:Position,o:&Options)->String {
+ let start=now();let mut s=Search::new(o.tt_entries,start+o.time_ms as f64);
+ let value=s.exact(p,false).ok();
+ format!("{{\"exact\":{},\"value\":{},\"elapsedMs\":{:.3}}}",value.is_some(),value.map_or("null".into(),|v|v.to_string()),now()-start)
+}

@@ -33,9 +33,9 @@ export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) 
   const unpack=r=>{const b=new Uint8Array(12+r.end-r.start);b.set(new TextEncoder().encode(r.magic));new DataView(b.buffer).setUint32(8,1,true);b.set(r.bytes.subarray(r.start,r.end),12);return decodeBook(b).entries[0].analysis;};
   const key = p => typeof p === 'string' ? `moves:${p.trim()}` : JSON.stringify([p.board,p.shape,p.turn??1]);
   const api = {
-    analyze(position = '', { timeMs = 1000, exactIfPossible = true, bestOnly = false, ttMb = 32 } = {}) {
+    analyze(position = '', { timeMs = 1000, exactIfPossible = true, bestOnly = false, reviewSolve = false, valueOnly = false, ttMb = 32 } = {}) {
       const book = api.getBook(position);
-      if (book && book.moves.length && (book.complete === true && book.moves.every(m=>m.exact && Number.isInteger(m.value)) || bestOnly && book.exact && book.moves.some(m=>m.exact && m.value===book.value))) {
+      if (!reviewSolve && book && book.moves.length && (book.complete === true && book.moves.every(m=>m.exact && Number.isInteger(m.value)) || bestOnly && book.exact && book.moves.some(m=>m.exact && m.value===book.value))) {
         const moves=structuredClone(book.moves).map(m=>({
           ...m,
           cells:m.cells??m.move.split('-').map(c=>(Number(c[1])-1)*8+c.charCodeAt(0)-97),
@@ -45,7 +45,7 @@ export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) 
         return {terminal:false,pass:false,value:null,perspective:'side-to-move',
           ...structuredClone(book),moves,bestMove:best.move,source:'book',elapsedMs:0,nodes:0,nps:0};
       }
-      const input=encoder.encode(JSON.stringify({position,options:{timeMs,exactIfPossible,bestOnly,ttMb}}));
+      const input=encoder.encode(JSON.stringify({position,options:{timeMs,exactIfPossible,bestOnly,reviewSolve,valueOnly,ttMb}}));
       const ptr=e.alloc(input.length);
       try {
         new Uint8Array(e.memory.buffer,ptr,input.length).set(input);

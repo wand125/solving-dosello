@@ -30,6 +30,12 @@ pub fn api(input: &str) -> Result<String, String> {
         .and_then(|x| x.get("exactIfPossible").ok())
         .map_or(Ok(true), json::Json::boolean)?;
     let best_only=opts.and_then(|x|x.get("bestOnly").ok()).map_or(Ok(false),json::Json::boolean)?;
+    let review_solve=opts.and_then(|x|x.get("reviewSolve").ok()).map_or(Ok(false),json::Json::boolean)?;
+    if review_solve {
+        let o=search::Options {time_ms:time as u64,tt_entries:search::entries_for_mb(tt_mb as usize)?,..Default::default()};
+        let value_only=opts.and_then(|x|x.get("valueOnly").ok()).map_or(Ok(false),json::Json::boolean)?;
+        return Ok(if value_only {search::exact_value_json(p,&o)} else {search::prove_json(p,&o)});
+    }
     Ok((if best_only{search::choose}else{search::analyze})(
         p,
         &search::Options {
