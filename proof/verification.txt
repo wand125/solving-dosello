@@ -1,0 +1,21 @@
+PASS proof/initial-proof.json
+SHA256 c9fecfc311fb21e0322cd7c89615715adf1fe9c53acf91d57690e27c1c9f61f7
+758 nodes; 760 child groups; 770 legal moves including symmetric duplicates.
+456 saved job results; 0 failures.
+All intervals reconstructed from saved job bounds and native negamax; 374 unknown [-64,64] leaves.
+Root [2,2]; best moves c5-c6, f3-f4; PV f3-f4 e6-f6 d7-e7 verified.
+Replies after f3-f4 (BLACK perspective; White is choosing):
+  c7-d7: [14,64]
+  d7-d8: [14,14]
+  d7-e7: [14,64]
+  e2-f2: [10,10]
+  e6-e7: [14,64]
+  e6-f6: [2,2]
+  f1-f2: [14,64]
+  f2-g2: [14,64]
+  f6-f7: [12,12]
+  f6-g6: [10,10]
+  g3-g4: [14,64]
+  g4-g5: [6,6]
+  g4-h4: [14,64]
+Scope: validates certificate consistency and legal transitions; trusts saved full-depth job results, does not re-solve leaves. No network or search.

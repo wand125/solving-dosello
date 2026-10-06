@@ -1,0 +1,15 @@
+{
+  "proofNodes": 758,
+  "jobs": 456,
+  "distinctJobPositions": 331,
+  "incompleteJobs": 0,
+  "recordedFailures": 0,
+  "nodesSearched": 6736132485239,
+  "threadHours": 237.34067795501815,
+  "leafEmpties": {
+    "50": 456
+  },
+  "createdJST": "2026-10-05T13:00:14.814483+09:00",
+  "updatedJST": "2026-10-05T23:02:58.427760+09:00",
+  "hardwareSource": "Task-supplied inventory; CPU models are not encoded in the proof."
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hosts": [
+    {"name":"host-a-1","ssh":"host-a","critical":true,"threads":11,"tt_mb":8192,"directory":"~/dosello-solve","command":"nice -n 10 ./target/release/job"},
+    {"name":"host-a-2","ssh":"host-a","critical":true,"threads":11,"tt_mb":8192,"directory":"~/dosello-solve","command":"nice -n 10 ./target/release/job"},
+    {"name":"host-b-1","ssh":"host-b","threads":7,"tt_mb":4096,"directory":"~/dosello-solve","command":"nice -n 10 ./target/release/job"},
+    {"name":"host-b-2","ssh":"host-b","threads":7,"tt_mb":4096,"directory":"~/dosello-solve","command":"nice -n 10 ./target/release/job"},
+    {"name":"host-c-1","ssh":"host-c","threads":6,"tt_mb":4096,"directory":"~/dosello-solve","command":"nice -n 10 ./target/release/job"}
+  ]
+}

@@ -1,0 +1,19 @@
+[package]
+name = "dosello_ai"
+version = "0.1.0"
+edition = "2021"
+[lib]
+crate-type = ["rlib", "cdylib"]
+[profile.release]
+lto = true
+codegen-units = 1
+# panic=abort only for wasm: in release it makes `cargo test --release` build
+# the lib twice (abort/unwind) and the cdylib outputs collide.
+[profile.wasm]
+inherits = "release"
+panic = "abort"
+
+[features]
+# Kernels are portable scalar Rust on every architecture. Explicit CI contract:
+# any future SIMD implementation must keep this feature on the scalar path.
+force-scalar = []

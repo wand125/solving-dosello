@@ -1,0 +1,5 @@
+version = 4
+
+[[package]]
+name = "dosello_ai"
+version = "0.1.0"
