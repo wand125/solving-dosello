@@ -1,4 +1,5 @@
 import {initialState,legalMoves,applyMove,isGameOver,score,toOriginal,formatMove} from './engine/rules.js';
+import {bindPlacement,placementEnabled} from './input.js';
 import {renderBoard} from './view.js';
 import {valueLabel,valueKind,mergeValues,bestMoves,provenBest} from './analysis.js';
 import {normalize,parseSequence} from './record.js';
@@ -14,8 +15,10 @@ function draw(){
  const s=state(),ms=legalMoves(s),counts=score(s),labels=new Map(analysis.filter(m=>Number.isFinite(m.value)).map(m=>[m.move,valueLabel(m,'').trim()]));
  $('black').textContent='● '+counts.black;$('white').textContent='○ '+counts.white;
  $('turn').textContent=isGameOver(s)?t('over'):(s.turn===1?t('black'):t('white'))+' '+t('turn');
- const active=(human()||paused)&&!isGameOver(s);
- renderBoard($('board'),s,{moves:ms,values:labels,best,selected,overlay:$('overlay').checked||hinted,lastMove:record[cursor-1],onCell:active?selectCell:null,onMove:active?play:null});
+ const active=placementEnabled($('mode').value,s.turn,isGameOver(s));
+ renderBoard($('board'),s,{moves:ms,values:labels,best,selected,overlay:$('overlay').checked||hinted,lastMove:record[cursor-1],onCell:active?selectCell:null,onMove:null});
+ placement.repaint();
+ $('best-move').textContent=best.join(' / ')||t('unknown');
  $('board').setAttribute('aria-label',t('board'));$('count').textContent=String(ms.length);$('moves').replaceChildren();
  const proven=provenBest(analysis),values=new Map(analysis.map(m=>[m.move,m]));
  const sorted=[...ms].sort((a,b)=>{const av=values.get(formatMove(a))?.value,bv=values.get(formatMove(b))?.value;return av===undefined?bv===undefined?0:1:bv===undefined?-1:(descending?bv-av:av-bv);});
@@ -40,7 +43,7 @@ function syncSequence(){$('sequence').value=record.slice(0,cursor).join(' ');}
 function play(m){states=states.slice(0,cursor+1);record=record.slice(0,cursor);record.push(formatMove(m));states.push(normalize(applyMove(state(),m)));cursor++;paused=false;syncSequence();refresh();}
 function jump(i){cursor=i;paused=true;syncSequence();refresh();}
 function refresh(){
- cancel();selected=null;analysis=[];book=null;result=null;best=[];hinted=false;
+ placement.cancel();cancel();selected=null;analysis=[];book=null;result=null;best=[];hinted=false;
  if(isGameOver(state())){const s=score(state());status('over',`${s.black}–${s.white} · ${s.difference===0?t('draw'):t(s.difference>0?'black':'white')+' '+t('wins')}`);draw();return;}
  status(paused?'paused':human()?'loading':'thinking');busy=true;draw();const id=generation;
  worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
@@ -60,6 +63,16 @@ function refresh(){
  };
  worker.postMessage({id,position:toOriginal(state()),timeMs:Number($('time').value),bestOnly:!human()&&!paused});
 }
+const placement=bindPlacement($('board'),{state,enabled:()=>placementEnabled($('mode').value,state().turn,isGameOver(state())),play,select:selectCell});
+new ResizeObserver(()=>{const matrix=$('board').getScreenCTM();$('board').classList.toggle('small-cells',matrix.a*50<38);}).observe($('board'));
+const phone=matchMedia('(max-width:760px), (max-width:960px) and (max-height:500px)');
+function disclosures(){
+ for(const id of ['settings','move-details','record-details'])$(id).open=!phone.matches;
+ const host=document.querySelector(phone.matches?'.board-area':'.toolbar');
+ host.append(document.querySelector('.actions'),$('settings'));
+ if(!phone.matches)host.append(document.querySelector('.languages'));
+}
+phone.addEventListener('change',disclosures);disclosures();
 $('new').onclick=()=>{states=[initialState()];record=[];cursor=0;paused=false;syncSequence();refresh();};
 $('mode').onchange=()=>{paused=false;refresh();};$('time').onchange=refresh;$('overlay').onchange=draw;
 $('hint').onclick=()=>{hinted=true;status(best.length?'candidate':'waiting',best.join(' / '));draw();};

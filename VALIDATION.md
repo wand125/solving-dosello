@@ -2,6 +2,24 @@
 
 Revision of **wand125/solving-dosello**, intended Pages root `https://wand125.github.io/solving-dosello/` and analyzer `/solving-dosello/play/`. No remote repository, push, deployment, external download or distributed solve was performed. The source project was not modified or used to supply files for this revision. Only the requested local Python server and local browser communicated over loopback.
 
+## Drag placement and phone UI — 2026-10-06
+
+Independent Pointer Events input now supports mouse, touch and pen, captured drags, legal side-colored previews, illegal red outlines, cancellation, selection/two-tap fallback and focused-cell arrow placement. Direction uses a directly hovered orthogonal neighbor first, otherwise the dominant axis after 0.45 cell; exact diagonal ties cancel until a direction is resolved. Placement is gated by the human side even during paused record review. Worker redraws retain the gesture and cell focus. No original-site code, markup or CSS was copied into the implementation.
+
+Phones use a board-first layout, 44 px action buttons, collapsible settings/moves/records, wrapped PV text and a horizontally scrollable table. Labels scale with the SVG and disappear below a rendered 38 px cell size, retaining best-move outlines. Safe areas, `viewport-fit=cover`, board-only touch suppression and short landscape screens are covered. Desktop retains the toolbar and two-column tool layout. English/Japanese instructions and README sections describe the input.
+
+| Check | Result |
+|---|---|
+| `npm test` (temporary fetch-blocking preload) | PASS: 24 tests, no failures or skips, including cached-original 2,000-game comparison; about 363 seconds |
+| `DOSELLO_OFFLINE=1 npm test` | PASS: 24 tests, no failures or skips; about 351 seconds |
+| Pure placement tests | PASS: threshold, dominant direction, exact diagonal ambiguity, direct neighbor, all four board edges, exhaustive preview agreement with legal moves, keyboard legality/activation no-ops and human-side gating |
+| HTTP smoke | PASS: 25 assets plus both routes over IPv6 loopback |
+| Headless Chromium | PASS: existing WASM/book/table/record/AI/language checks, mouse/touch/pen placement, legal/illegal previews, capture across redraw, touch cancellation without scrolling, keyboard placement, AI-side rejection |
+| Phone layout | PASS: 360×740, 390×844, 430×932, 740×360 and 844×390; square board within viewport, action targets ≥44 px, default-collapsed panels and collapsed/expanded content without page overflow; 390 px screenshot visually reviewed |
+| Localization/security | PASS: matching dictionary keys, all HTML translation bindings present, unchanged analyzer CSP, no browser CSP errors or page exceptions |
+
+Browser checks use `--headless=new`, per-command timeouts and a 180-second overall deadline. External traffic is blocked by the harness. Local HTTP/browser checks required a loopback sandbox exception. These are Chromium emulation checks, not physical-device Safari/Android testing. Existing rules comparisons use the already cached optional original fixture; no download, external network, dependency installation or push is involved.
+
 ## Final counts and perfect-play paper update — 2026-10-06
 
 This local update replaces the old size extrapolations with the supplied final counts, adds the full perfect-play table and replay, and preserves the existing CSP and self-contained `docs/` deployment. Existing analyzer edits and the pre-existing Section 8 paragraph were preserved outside this commit. No external network, push, deployment or new optimality proof was performed.

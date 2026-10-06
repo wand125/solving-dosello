@@ -26,6 +26,12 @@ For local use, open `http://localhost:8000/` or `http://localhost:8000/play/`. I
 
 Both pages default to English. **EN | 日本語** switches languages, persists in localStorage and updates page language, title and description. `?lang=ja` / `?lang=en` overrides the saved preference. The English paper remains readable without JavaScript.
 
+### How to play
+
+Drag from an empty cell toward an orthogonally adjacent cell, then release to place a legal domino. The live preview uses the side’s color for a legal move and a red outline for an illegal move; releasing an illegal placement or cancelling the gesture makes no move. A single tap selects a cell; tapping a second adjacent cell remains available as a fallback. With an empty cell focused, an arrow key places in that direction if legal; Enter/Space do nothing. You can also play a move from the analysis table. Board input is enabled only for the human side (both sides in two-player and analysis modes).
+
+On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode, AI time, overlay and help. The analysis summary shows the position value and best move or recommendation; expand **Show all moves** for the table and **Game record** for the record and sequence. Board dragging does not scroll the page; scroll from outside the board.
+
 The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, analysis without AI moves, hints, evaluation overlays, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **E** overlay; input fields retain normal typing behavior.
 
 Values are **mover-perspective final disc differences**. Exact values, proven bounds (`≤`, `≥`, intervals) and estimates (`≈`) remain distinct. Yellow outlines mark proven best moves; otherwise the top estimate is labeled **Recommended**, without a guarantee. Current position values use the book when available. Blue outlines identify the last placement.
@@ -166,6 +172,12 @@ bash rust/tools/build-wasm.sh
 ```
 
 Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必要としません。GitHub Pagesには `docs/` のみで配置でき、相対パスで動きます。ルールを編集した場合も上のコマンドでデモ用コピーを更新できます。小型定石は元プロジェクトで生成済みのもの（約5.6 MB）で、巨大なジャーナル・分割ブックは含めません。公開されていない定石の全学習過程は、このセットだけから完全再現できません。証明由来の小型ブックだけなら、`rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json` で作れます（同梱ブック全体と同一ではありません）。
+
+### 遊び方
+
+空きマスから縦横に隣接するマスへドラッグし、離すと合法なドミノを置きます。プレビューは合法なら手番の色、不合法なら赤枠です。不合法な位置で離す、または操作をキャンセルすると着手しません。1回のタップはマスの選択のみで、隣接する2マスを順にタップする代替操作も使えます。空きマスにフォーカスして矢印キーを押すと、その方向の合法手を置きます。Enter/Spaceは何もしません。解析表の手を選んでも着手できます。盤面入力は人間の手番のみ有効です（2人対局・解析では両色）。
+
+スマートフォンでは盤面の下に「新規・戻す・進む・ヒント」を配置しています。「設定」でモード、AI時間、評価表示、ヘルプを開きます。解析は局面評価と最善手・推奨手を表示し、「すべての手を表示」で表を、「棋譜」で着手履歴と着手列を開けます。盤面のドラッグではページをスクロールしないため、スクロールは盤面の外で行ってください。
 
 ## 完全プレイの棋譜
 
