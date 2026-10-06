@@ -10,7 +10,8 @@ export function valueLabel(m,exact='Exact'){
 }
 export function mergeValues(book,result){
  const map=new Map((result?.moves??[]).map(m=>[m.move,{...m}]));
- for(const m of book?.moves??[]){const r=map.get(m.move);if(m.exact||!r?.exact)map.set(m.move,{...r,...m,pv:r?.pv?.length>m.pv?.length?r.pv:m.pv});}
+ // Proven book entries keep the book's proven PV; a longer search PV may contradict it.
+ for(const m of book?.moves??[]){const r=map.get(m.move);if(m.exact||!r?.exact)map.set(m.move,{...r,...m,pv:!m.exact&&r?.pv?.length>m.pv?.length?r.pv:m.pv});}
  return [...map.values()];
 }
 export function provenBest(moves){return moves.filter(m=>m.exact&&moves.every(n=>n.move===m.move||(n.exact?n.value<=m.value:Number.isFinite(n.upper)&&n.upper<=m.value))).map(m=>m.move);}
