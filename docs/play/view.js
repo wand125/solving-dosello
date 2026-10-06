@@ -30,7 +30,7 @@ export function renderBoard(target,state,{moves=[],values=new Map(),best=[],sele
   const x=offset+a%8*cell+3,y=offset+(a>>3)*cell+3,w=h?94:44,height=h?44:94;
   const g=svg('g',{'pointer-events':onMove?'auto':'none'});
   g.append(svg('rect',{x,y,width:w,height,rx:10,fill:highlight?'#f5d65322':'#ffffff08',stroke:highlight?'#d4a900':'#949aa5','stroke-width':highlight?4:.6,'stroke-dasharray':highlight?'':'3 3'}));
-  if(overlay&&values.has(name))g.append(svg('text',{class:'eval-label',x:x+w/2,y:y+height/2+4,'text-anchor':'middle',fill:'#123239','font-size':10,'font-weight':700,'paint-order':'stroke',stroke:'#f6faf7','stroke-width':3},values.get(name)));
+  if(overlay&&values.has(name))g.append(svg('text',{class:highlight?'eval-label best':'eval-label',x:x+w/2,y:y+height/2+4,'text-anchor':'middle',fill:'#123239','font-size':10,'font-weight':700,'paint-order':'stroke',stroke:'#f6faf7','stroke-width':3},values.get(name)));
   if(onMove){g.setAttribute('role','button');g.setAttribute('tabindex','0');g.setAttribute('aria-label',name);g.addEventListener('click',()=>onMove(m));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onMove(m);}});}
   target.append(g);
  }

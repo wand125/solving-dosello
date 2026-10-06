@@ -20,7 +20,7 @@ td:last-child{white-space:normal;overflow-wrap:anywhere;min-width:130px;max-widt
  #settings{margin:0;background:#f7f7f8;padding:0 10px;border:1px solid #c5c7cb}.settings-content{align-items:stretch;flex-direction:column}.settings-content label{justify-content:space-between}button,select{min-height:44px}select{max-width:100%;min-width:0}.toolbar label>span{font-size:14px}
  h2{font-size:14px}.table-wrap{max-height:320px;max-width:100%;overflow:auto}table{font-size:14px}td button{min-height:44px}td small{font-size:14px}td:last-child{min-width:150px}
  .statusbar{position:static;font-size:14px;padding:8px;padding-bottom:max(8px,env(safe-area-inset-bottom));overflow-wrap:anywhere}.statusbar span{min-width:0;max-width:100%}
- .eval-label{font-size:18px}#record{max-height:180px}textarea{font-size:16px}
+ .eval-label{font-size:13px}.eval-label:not(.best){display:none}#record{max-height:180px}textarea{font-size:16px}
 }
 @media(max-width:370px){.eval-label{display:none}}
 @media(max-width:960px) and (max-height:500px) and (orientation:landscape){#board{max-width:calc(100svh - 105px);margin:auto}.eval-label{display:none}}
