@@ -31,8 +31,16 @@ try{
  await evaluate("document.querySelector('[data-language=ja]').click()");assert.equal(await evaluate('document.documentElement.lang'),'ja');assert.equal(await evaluate('document.title'),'DOSELLO 解析ツール');
  await navigate('');await until("document.documentElement.lang==='ja'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/194勝/);
  await navigate('?lang=en');await until("document.documentElement.lang==='en'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/194 wins/);
- await evaluate("document.querySelector('#pv-next').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/After ply 1/);
+ await evaluate("document.querySelector('#pv-next').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Ply 1/);
  await evaluate("document.querySelector('[data-language=ja]').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/1手目/);
+ await evaluate("document.querySelector('#pv-last').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/黒 30・白 28/);
+ await evaluate("document.querySelector('[data-language=en]').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Terminal: Black wins by 2/);
+ assert.equal(await evaluate("document.querySelector('#pv-next').disabled"),true);
+ await evaluate("document.querySelector('#pv-prev').click()");assert.equal(await evaluate("document.querySelector('#pv-step').value"),'24');
+ await evaluate("document.querySelector('#pv-step').value='12';document.querySelector('#pv-step').dispatchEvent(new Event('input'))");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Ply 12: a3-b3/);
+ await evaluate("document.querySelector('#pv-first').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Initial position/);
+ await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});assert(await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+ await call('Emulation.clearDeviceMetricsOverride');
  await navigate('play/?lang=en');await until("document.querySelectorAll('#moves tr.best').length===2");
  await evaluate("[...document.querySelectorAll('#moves button')].find(b=>b.textContent==='f3-f4').click()");await until("document.querySelectorAll('#record button').length>=3");
  await evaluate("document.querySelector('#undo').click()");assert.equal(await evaluate("document.querySelector('#sequence').value"),'');

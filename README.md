@@ -1,6 +1,6 @@
 # DOSELLO is Solved
 
-The standard initial position of DOSELLO is **Black +2** with perfect play. The optimal openings are **f3-f4 / c5-c6**, related by 180° rotation. The verified PV starts **f3-f4 e6-f6 d7-e7**.
+The standard initial position of DOSELLO is **Black +2** with perfect play. The optimal openings are **f3-f4 / c5-c6**, related by 180° rotation. One full perfect-play line ends **Black 30–White 28**, with six isolated empty cells (25 placements, no passes).
 
 This repository, **wand125/solving-dosello**, contains an independent Rust/JavaScript engine, a sanitized distributed-search certificate, a fully bilingual research paper and a WebAssembly analysis tool. This revision is local only; no remote repository, push or Pages deployment was performed.
 
@@ -40,6 +40,14 @@ bash rust/tools/build-wasm.sh
 
 This also updates the demo rules copy. The approximately 5.6 MB compact book was previously generated; large journals and sharded books are excluded. The full book-learning process is not reproducible from this subset. A proof-only book can be regenerated with `rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json`; it is not identical to the bundled full compact book.
 
+## Perfect-play line
+
+```text
+f3-f4 e6-f6 d7-e7 g4-g5 b6-c6 c8-d8 g6-h6 f7-f8 c3-d3 e1-e2 c1-c2 a3-b3 h3-h4 a5-b5 b7-c7 a1-b1 g2-h2 a7-a8 a4-b4 g1-h1 f1-f2 d1-d2 a2-b2 h7-h8 g7-g8
+```
+
+The first three moves come from the distributed proof. Each later move was proven optimal for the mover on 2026-10-06 using `analyze --prove-best` with 22 threads; other optimal moves may exist. [Saved per-ply values and timings](docs/data/perfect-line.jsonl) start at zero-based ply 3 (the fourth move). The paper includes a numbered table and an interactive 25-move replay.
+
 ## Proof and measurements
 
 The certificate records computation on October 5, 2026, 13:00–23:03 JST: 758 positions, 456 jobs covering 331 distinct targets, zero recorded failures, 6,736,132,485,239 searched nodes and about 237.34 allocated thread-hours. Search machines were Ryzen 9 9950X (22 threads), Core i9-9980HK (14) and Apple M1 (6), with a separate non-searching coordinator.
@@ -51,7 +59,7 @@ python3 proof/summarize.py
 rust/target/release/game_stats 100000 5
 ```
 
-The 100,000 random games average 24.86827 placements. Branching-factor products suggest a rough game-tree scale of 10²⁴·⁴–10²⁴·⁶. Distinct positions are exhaustively enumerated through five placements; later extrapolations are exploratory, not reliable counts of all reachable positions.
+The 100,000 random games average 24.86827 placements; lengths and branching factors are descriptive statistics. Positions include colors, domino pairing and side to move; ply counts forced passes. Counts are exact through ply 7, with unbiased multiplicity-corrected MC estimates for plies 8–11 (ply 11: 2.2775e12 [2.1087e12, 2.4462e12], 95% CI). At ≥12, only bounds are available because multiplicity counting is intractable. The total distinct reachable-position count is unknown: exact lower bound 132,473,902, proven combinatorial upper bound 2.2575e21 raw (5.6437e20 up to the eight D4 board symmetries). Knuth sampling of 1,000,000 complete playouts, seed 20261006, estimates all record prefixes at 1.0336e26 [1.0001e26, 1.0672e26] and completed games at 3.5573e25 [3.4409e25, 3.6736e25] (95% CI). See [final count data](docs/data/position-counts.json).
 
 ## Strength: reproduced by command
 
@@ -123,7 +131,7 @@ Original code and documentation in this project use [MIT](LICENSE), with **wand1
 
 # 日本語
 
-DOSELLOの標準初期局面のゲーム理論値は **黒 +2**。最善初手は **f3-f4 / c5-c6**（180°回転対称）、確認したPVの先頭は **f3-f4 e6-f6 d7-e7** です。
+DOSELLOの標準初期局面のゲーム理論値は **黒 +2**。最善初手は **f3-f4 / c5-c6**（180°回転対称）、完全プレイの一例は25配置・パスなしで **黒30対白28**、孤立した空きマス6個で終局します。
 
 独自Rust/JavaScriptエンジン、保存済み分散探索の証明木、日英の研究ページ、新規にデザインしたWASM対局デモをまとめた公開準備リポジトリです。現状は **ローカルステージングのみ**。GitHubリポジトリ作成・push・Pages公開は実施していません。
 
@@ -159,6 +167,14 @@ bash rust/tools/build-wasm.sh
 
 Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必要としません。GitHub Pagesには `docs/` のみで配置でき、相対パスで動きます。ルールを編集した場合も上のコマンドでデモ用コピーを更新できます。小型定石は元プロジェクトで生成済みのもの（約5.6 MB）で、巨大なジャーナル・分割ブックは含めません。公開されていない定石の全学習過程は、このセットだけから完全再現できません。証明由来の小型ブックだけなら、`rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json` で作れます（同梱ブック全体と同一ではありません）。
 
+## 完全プレイの棋譜
+
+```text
+f3-f4 e6-f6 d7-e7 g4-g5 b6-c6 c8-d8 g6-h6 f7-f8 c3-d3 e1-e2 c1-c2 a3-b3 h3-h4 a5-b5 b7-c7 a1-b1 g2-h2 a7-a8 a4-b4 g1-h1 f1-f2 d1-d2 a2-b2 h7-h8 g7-g8
+```
+
+先頭3手は分散証明に由来し、以後は2026-10-06に22スレッドの `analyze --prove-best` で各着手側の最善手を証明しました。他の最善手も存在しえます。[保存した各手の値・時間](docs/data/perfect-line.jsonl)は0始まりのply 3（4手目）からです。論文には全25手の表と操作可能な盤面を掲載しています。
+
 ## Proof and measurements
 
 2026-10-05 13:00–23:03 JSTの保存証明を収録しています。758局面、456ジョブ（331種類の対象局面）、保存失敗0、6,736,132,485,239探索ノード、約237.34割当スレッド時間です。探索機はRyzen 9 9950X（22スレッド）、Core i9-9980HK（14）、Apple M1（6）。別のcoordinatorは探索しません。
@@ -170,7 +186,7 @@ python3 proof/summarize.py
 rust/target/release/game_stats 100000 5
 ```
 
-10万局のランダム対局は平均24.86827配置。棋譜数の分岐数積は約10²⁴·⁴〜10²⁴·⁶の粗い推定です。局面数は5手目まで全列挙し、その後の参考外挿は信頼できる全局面数とは区別しています。[生集計と方法](docs/data/README.md)を参照してください。
+10万局のランダム対局は平均24.86827配置で、長さ・分岐数は記述統計です。局面には色・ドミノの組・手番を含み、手数は強制パスを数えます。0〜7手は全列挙、8〜11手は経路多重度を補正した不偏MC推定（11手：2.2775e12 [2.1087e12, 2.4462e12]、95%信頼区間）。12手以降は多重度計数が困難なため境界のみ。全到達局面数は未確定で、厳密下界132,473,902、証明済み組合せ論的上界2.2575e21（最大8つの盤面対称性D4で同一視すると5.6437e20）。100万完全対局・シード20261006のKnuth推定は全棋譜接頭辞1.0336e26 [1.0001e26, 1.0672e26]、終局棋譜3.5573e25 [3.4409e25, 3.6736e25]（95%信頼区間）。[生集計と方法](docs/data/README.md)を参照してください。
 
 対原作レベル5の194勝0分6敗は元プロジェクトの `match_eval 200 500 site5 4` による再現結果です。200局、500ms/手、4スレッド、初めの4手をランダム化した色入替ペア対局、定石なし。相手は原作 `choose()` レベル5の忠実な再実装で、原作 `game.js` と照合済みと実験実施者が確認しています。公開版の同等ツールは `DOSELLO_OFFLINE=1 node test/match_eval.js 200 500 site5 4`。原作がない場合はSKIPします。利用者がネットワークを許可する場合だけ `DOSELLO_OFFLINE=0` で任意取得できます。今回は200局の再実行はしていません。元の乱数列は同梱しておらず、時間・乱数条件により結果は変動します。別条件の保存結果191勝1分8敗（100ms/手）を同梱しています。論文のOthello比較値も依頼時提示値で、今回のオフライン作業では外部原典の再取得・照合をしていません。
 

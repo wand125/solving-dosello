@@ -2,7 +2,25 @@
 
 Revision of **wand125/solving-dosello**, intended Pages root `https://wand125.github.io/solving-dosello/` and analyzer `/solving-dosello/play/`. No remote repository, push, deployment, external download or distributed solve was performed. The source project was not modified or used to supply files for this revision. Only the requested local Python server and local browser communicated over loopback.
 
-## Checks performed for this revision
+## Final counts and perfect-play paper update — 2026-10-06
+
+This local update replaces the old size extrapolations with the supplied final counts, adds the full perfect-play table and replay, and preserves the existing CSP and self-contained `docs/` deployment. Existing analyzer edits and the pre-existing Section 8 paragraph were preserved outside this commit. No external network, push, deployment or new optimality proof was performed.
+
+| Check | Result |
+|---|---|
+| `npm test` with a temporary `NODE_OPTIONS` preload that rejects `fetch` | PASS: 19 tests, zero failures or skips; existing cached original code used without downloading |
+| `DOSELLO_OFFLINE=1 npm test` | PASS: 19 tests, zero failures or skips, including the cached-original 2,000-game comparison |
+| `node --test test/perfect-line.test.js` | PASS: all 25 moves legal; saved sequence, per-ply empties, values and proof flags match; terminal Black 30 / White 28 / six isolated empty cells |
+| Source-data checks | Exact rows 0–7 and every displayed distinct MC mean / 95% CI at 8–11 match `position-counts.json` (`distinct-shallow`); all 25 moves appear in the paper |
+| `python3 test/http-smoke.py` | PASS: 23 assets and both routes return HTTP 200 over IPv6 loopback, including both new data files and replay module |
+| Local Chromium smoke | PASS: first/previous/next/last and slider, final score, EN/JA captions and controls, language persistence, 390 px layout without page overflow, readable English without JS; existing analyzer smoke also passes |
+| CSP and HTML | Policy unchanged; no browser CSP errors or exceptions; scripts local and external; unique element IDs and HTML-escaped `data-ja` attributes |
+| Privacy grep | No private home paths, local machine/VPN domain patterns, private address markers or email addresses in README, docs or new replay test; public citation/repository URLs remain intentional |
+| `git diff --check` | PASS |
+
+The first three perfect moves use the distributed certificate; individual times are unavailable and are shown as such. Moves 4–25 use the supplied 22-thread `analyze --prove-best` results. Replay validates rules and scoring, not optimality independently. Normal Monte Carlo CIs are empirical diagnostics, not proven bounds. The total reachable-position count remains unknown between the stated deterministic bounds. Historical checks and file sizes below describe the earlier staging revision, not new measurements for this update. The HTTP server required loopback sandbox permission; Chromium blocked external traffic.
+
+## Earlier staging checks (retained historical record)
 
 | Check | Result |
 |---|---|

@@ -1,0 +1,24 @@
+{"ply": 3, "empties": 50, "value": -2, "best": "g4-g5", "exact": true, "proof": true, "sec": 642.4}
+{"ply": 4, "empties": 48, "value": 2, "best": "b6-c6", "exact": true, "proof": true, "sec": 193.5}
+{"ply": 5, "empties": 46, "value": -2, "best": "c8-d8", "exact": true, "proof": true, "sec": 28.4}
+{"ply": 6, "empties": 44, "value": 2, "best": "g6-h6", "exact": true, "proof": true, "sec": 11.4}
+{"ply": 7, "empties": 42, "value": -2, "best": "f7-f8", "exact": true, "proof": true, "sec": 4.6}
+{"ply": 8, "empties": 40, "value": 2, "best": "c3-d3", "exact": true, "proof": true, "sec": 4.2}
+{"ply": 9, "empties": 38, "value": -2, "best": "e1-e2", "exact": true, "proof": true, "sec": 5.1}
+{"ply": 10, "empties": 36, "value": 2, "best": "c1-c2", "exact": true, "proof": true, "sec": 3.6}
+{"ply": 11, "empties": 34, "value": -2, "best": "a3-b3", "exact": true, "proof": true, "sec": 3.5}
+{"ply": 12, "empties": 32, "value": 2, "best": "h3-h4", "exact": true, "proof": true, "sec": 3.4}
+{"ply": 13, "empties": 30, "value": -2, "best": "a5-b5", "exact": true, "proof": true, "sec": 3.3}
+{"ply": 14, "empties": 28, "value": 2, "best": "b7-c7", "exact": true, "proof": true, "sec": 3.2}
+{"ply": 15, "empties": 26, "value": -2, "best": "a1-b1", "exact": true, "proof": true, "sec": 3.3}
+{"ply": 16, "empties": 24, "value": 2, "best": "g2-h2", "exact": true, "proof": true, "sec": 3.4}
+{"ply": 17, "empties": 22, "value": -2, "best": "a7-a8", "exact": true, "proof": true, "sec": 3.5}
+{"ply": 18, "empties": 20, "value": 2, "best": "a4-b4", "exact": true, "proof": true, "sec": 3.2}
+{"ply": 19, "empties": 18, "value": -2, "best": "g1-h1", "exact": true, "proof": true, "sec": 3.5}
+{"ply": 20, "empties": 16, "value": 2, "best": "f1-f2", "exact": true, "proof": true, "sec": 3.5}
+{"ply": 21, "empties": 14, "value": -2, "best": "d1-d2", "exact": true, "proof": true, "sec": 3.4}
+{"ply": 22, "empties": 12, "value": 2, "best": "a2-b2", "exact": true, "proof": true, "sec": 3.3}
+{"ply": 23, "empties": 10, "value": -2, "best": "h7-h8", "exact": true, "proof": true, "sec": 3.3}
+{"ply": 24, "empties": 8, "value": 2, "best": "g7-g8", "exact": true, "proof": true, "sec": 3.2}
+{"seq": ["f3-f4", "e6-f6", "d7-e7", "g4-g5", "b6-c6", "c8-d8", "g6-h6", "f7-f8", "c3-d3", "e1-e2", "c1-c2", "a3-b3", "h3-h4", "a5-b5", "b7-c7", "a1-b1", "g2-h2", "a7-a8", "a4-b4", "g1-h1", "f1-f2", "d1-d2", "a2-b2", "h7-h8", "g7-g8"], "terminal": true, "value": -2}
+{"final": "f3-f4 e6-f6 d7-e7 g4-g5 b6-c6 c8-d8 g6-h6 f7-f8 c3-d3 e1-e2 c1-c2 a3-b3 h3-h4 a5-b5 b7-c7 a1-b1 g2-h2 a7-a8 a4-b4 g1-h1 f1-f2 d1-d2 a2-b2 h7-h8 g7-g8"}
