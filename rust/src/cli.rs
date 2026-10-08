@@ -9,6 +9,7 @@ pub struct Args {
 }
 pub fn args() -> Result<Args, String> {
     let mut opts = Options::default();
+    let mut eval_args = std::collections::BTreeMap::new();
     let mut words = vec![];
     let mut rest = vec![];
     let mut wld = false;
@@ -17,6 +18,9 @@ pub fn args() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         match a.as_str() {
+            "--eval" | "--weights" | "--probcut" | "--probcut-t" | "--eval-ordering" => {
+                eval_args.insert(a, it.next().ok_or("missing evaluator option value")?);
+            }
             "--time" => opts.time_ms = it.next().ok_or("time")?.parse().map_err(|_| "time")?,
             "--threads" => {
                 opts.threads = it.next().ok_or("threads")?.parse().map_err(|_| "threads")?
@@ -48,6 +52,19 @@ pub fn args() -> Result<Args, String> {
             }
             _ => words.push(a),
         }
+    }
+    if !eval_args.is_empty() {
+        #[cfg(not(target_arch="wasm32"))] {
+            let args = crate::eval_lab::Args(eval_args);
+            let model = args.model()?;
+            opts.probcut3 = args.search_config(&model)?;
+            match model.as_deref() {
+                Some(crate::eval_lab::Evaluator::Eval3(m)) => opts.eval3 = Some(m.clone()),
+                Some(_) => return Err("analyze/solve support --eval old|eval3".into()),
+                None => {}
+            }
+        }
+        #[cfg(target_arch="wasm32")] {return Err("use wasm model loading API".into());}
     }
     if root_score && prove_best {return Err("Choose --root-score or --prove-best".into())}
     let s = words.join(" ");

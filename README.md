@@ -154,6 +154,18 @@ DOSELLOの標準初期局面のゲーム理論値は **黒 +2**。最善初手�
 - [証明の形式と検査](proof/README.md)・[検証報告](proof/verification.txt)
 - [公開準備の検査結果](VALIDATION.md)
 
+## eval3 update
+
+The demo loads `eval3-r2.bin` (about 1.9 MB): an independent, incrementally updated linear pattern evaluator. Plain eval3 is used, with ProbCut and eval-guided ordering disabled. Proven book moves still take priority; elsewhere the AI gets 3000 ms per move. Weight-loading failure quietly falls back to the previous evaluator. The bilingual paper reports the source project's training, accuracy, speed and paired-match measurements; the demo is not a perfect player.
+
+Native tools support `--eval eval3 --weights rust/data/eval3-r2.bin`: `analyze`, `match_eval2` (against `old` or `eval3`), `eval_metrics`, and `bench_eval3`. `train_eval3` accepts `--data FILE --output FILE`; full training labels and benchmark suites are not bundled. The native site-CPU clone is excluded; the existing optional original-code adapter remains test-only.
+
+## eval3 更新
+
+デモは独立した線形パターン評価 `eval3-r2.bin`（約1.9 MB）を読み込み、差分更新で評価します。ProbCutと評価値による着手順序付けは無効です。証明済み定石手を優先し、それ以外は1手3000ms。重みを読み込めない場合は従来の評価に戻ります。日英の論文に元プロジェクトの学習・精度・速度・ペア対戦の測定結果を掲載しました。デモは完全なプレイヤーではありません。
+
+ネイティブの `analyze`、`match_eval2`（対 `old` / `eval3`）、`eval_metrics`、`bench_eval3` は `--eval eval3 --weights rust/data/eval3-r2.bin` に対応します。`train_eval3` は `--data FILE --output FILE` で学習します。学習教師全体やベンチマーク用スイート、原作CPUの複製は同梱しません。既存の原作照合アダプタはテスト専用です。
+
 ## Build / test / play
 
 Rust、Python 3、Node.js 22以降が必要です。外部crate・npmパッケージ依存はありません。リポジトリのルートで実行します。

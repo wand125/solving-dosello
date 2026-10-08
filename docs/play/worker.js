@@ -1,7 +1,7 @@
 import init from './wasm/dosello.js';
 import {fromOriginal,toOriginal,legalMoves,applyMove,formatMove} from './engine/rules.js';
 import {provenBest} from './analysis.js';
-const ready=(async()=>{const ai=await init();let bookError=null;try{await ai.loadBook(new URL('./wasm/opening-book.bin',import.meta.url));}catch(e){bookError=e.message;}return {ai,bookError};})();
+const ready=(async()=>{const ai=await init();try{await ai.loadEval3(new URL('./wasm/eval3-r2.bin',import.meta.url));}catch{/* Keep the previous evaluator if weights are unavailable. */}let bookError=null;try{await ai.loadBook(new URL('./wasm/opening-book.bin',import.meta.url));}catch(e){bookError=e.message;}return {ai,bookError};})();
 // A proven move's PV must follow proven best replies, not a heuristic search line:
 // walk the book while each position has a proven best move.
 function provenLine(ai,state,move,limit=16){

@@ -1,3 +1,38 @@
+# Eval3 staging validation — 2026-10-08
+
+**Release blocked; not committed:** the requested `../dosello/rust/data/eval3-r2.bin` is absent. A read-only filename scan of the source project also found no copy of that trained model. The experimental `results/eval/r2/` weights use only a tiny training subset and were not substituted. The code, documentation and rebuilt WASM are staged in the working tree, but the documented eval3 release is not ready until the intended weights are supplied and the release checks pass.
+
+All work was local. No external network, download, push, SSH, deployment or source-project modification was performed. HTTP checks used IPv6 loopback only. Rust remains standard-library-only; no dependencies were added. Original-site assets and the source's native site-CPU clone were excluded, along with large datasets, training journals, host configuration and raw results. The only copied suite record is a small path-free Rust test fixture.
+
+## Implementation
+
+- Compared the Rust source trees and imported eval3, incremental pattern state, its evaluator dependencies, trainer, benchmark, match and metrics tools, calibration support and required suite transport. Preserved the public crate's `reviewSolve` / `valueOnly` APIs and existing public tools.
+- Native eval3 selection defaults to `rust/data/eval3-r2.bin`. `match_eval2` supports the previous AI and eval3 opponents; the optional original-code adapter remains separate. ProbCut and eval-guided ordering are disabled by default, and loading/resetting a model clears experimental policy.
+- The analyzer and review workers await weight loading before searching and quietly retain the old evaluator on failure. Proven book priority and the 3000 ms AI budget are unchanged. The build script copies the release weights and runs the new release smoke test.
+- Updated the paper and README in English and Japanese. Training, performance and strength numbers are attributed to source-project/local measurements; the long experiments were not rerun. The demo is explicitly described as a time-limited search, not a perfect player.
+
+## Checks
+
+| Check | Result |
+|---|---|
+| `cargo test --release --offline --manifest-path rust/Cargo.toml` | PASS: 55 tests, no failures; includes incremental update/search parity, trainer/metrics integration, experimental policy isolation, book proof checks and existing exact/parallel tests |
+| WASM rebuild | PASS: `--profile wasm --offline --target wasm32-unknown-unknown --lib`, with build paths remapped; 5,069,427 bytes |
+| Existing WASM demo tests | PASS: 4 tests, legal moves, seeded games, opening-book +2 for f3-f4 and c5-c6, and proof coverage |
+| `npm test` with temporary fetch-blocking preload | 39 PASS, 0 FAIL (includes the eval3 release-weight smoke) |
+| `DOSELLO_OFFLINE=1 npm test` | 39 PASS, 0 FAIL |
+| Worker load/fallback test | PASS: waits for loading before search, silent fallback on load failure |
+| In-memory synthetic-model diagnostic | PASS: zero-weight eval3 produces zero static values, invalid data leaves the installed model intact, empty load resets to the old evaluator; no synthetic weights saved |
+| HTTP smoke | PASS: 30 assets and both page routes returned HTTP 200 over IPv6 loopback including `docs/play/wasm/eval3-r2.bin` |
+| Localization/security | PASS: both existing CSP policies unchanged, HTML English default and Japanese translations present |
+| Privacy scan | PASS across tracked and new non-ignored files, including WASM: no absolute home paths, email addresses, or private `.local` / `.ts.net` host forms |
+| `git diff --check` | PASS |
+
+Current `docs/` payload: **12,328,056 bytes (12.33 MB / 11.76 MiB)**. Expected with the 1,875,260-byte model: **14,203,316 bytes (14.20 MB / 13.55 MiB)**. No full training data or large book journals are included.
+
+To finish: obtain the intended trained model locally, place matching copies in `rust/data/` and `docs/play/wasm/`, rebuild through `rust/tools/build-wasm.sh`, rerun both npm modes and the HTTP/privacy checks, record the model hash and final size here, and commit. The new release test deliberately fails on absent weights instead of treating a fallback-only demo as a shipped eval3 release.
+
+---
+
 # Local validation — 2026-10-06
 
 Revision of **wand125/solving-dosello**, intended Pages root `https://wand125.github.io/solving-dosello/` and analyzer `/solving-dosello/play/`. No remote repository, push, deployment, external download or distributed solve was performed. The source project was not modified or used to supply files for this revision. Only the requested local Python server and local browser communicated over loopback.

@@ -37,19 +37,53 @@ fn narrow_observed(s:&mut Search,p:Position,b:&mut(i32,i32),threshold:Option<i32
 pub fn batch(raw:&str,o:&Options)->Result<(),String>{
     if o.threads==0||o.threads>256||o.selectivity!=0||o.selective_exact{return Err("tree jobs require nonselective search".into())}
     let input=json::parse(raw)?;let rows=input.arr()?;if rows.len()>256{return Err("batch limit 256".into())}
-    let (result,_)=crate::search::distributed_execute(o,now()+o.time_ms as f64,|s|->Result<(),String>{
-        for row in rows{
+    crate::search::distributed_execute(o,now()+o.time_ms as f64,|s| batch_rows(s,rows,0)).0
+}
+/// Suite transport correlates out-of-order records by batchIndex. The tree
+/// transport above retains its original ordered streaming contract.
+pub fn suite_batch(raw:&str,o:&Options)->Result<(),String>{
+    if o.threads==0||o.threads>256||o.selectivity!=0||o.selective_exact{return Err("tree jobs require nonselective search".into())}
+    let input=json::parse(raw)?;let rows=input.arr()?;if rows.len()>256{return Err("batch limit 256".into())}
+    let deadline=now()+o.time_ms as f64;
+    if rows.len() <= 1 {
+        return crate::search::distributed_execute(o,deadline,|s| batch_rows(s,rows,0)).0;
+    }
+    // Independent roots/leaves use exactly the slot budget, one atomic TT.
+    let table=std::sync::Arc::new(SharedTable::new(o.tt_entries));
+    let next=std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|scope| {
+        let mut workers=vec![];
+        for _ in 0..o.threads.min(rows.len()) {
+            let table=table.clone();let next=&next;
+            workers.push(scope.spawn(move || -> Result<(),String> {
+                let mut s=Search::new(4,deadline);s.shared=Some(table);
+                loop {
+                    if now()>=deadline {break}
+                    let i=next.fetch_add(1,std::sync::atomic::Ordering::Relaxed);
+                    if i>=rows.len(){break}
+                    batch_rows(&mut s,&rows[i..i+1],i)?;
+                }
+                Ok(())
+            }));
+        }
+        for worker in workers {worker.join().map_err(|_| "batch worker panic")??;}
+        Ok(())
+    })
+}
+fn batch_rows(s:&mut Search,rows:&[Json],offset:usize)->Result<(),String>{
+        for (index,row) in rows.iter().enumerate(){
+            let index=index+offset;
             let started=now();let k=row.get("key")?.str()?;let p=position(k)?;let mode=row.get("mode")?.str()?;
             if mode=="value"||mode=="bound"{
                 let mut b=interval(row)?;
                 let threshold=if mode=="bound"{let t=row.get("threshold")?.num()?;if !(-64..=65).contains(&t){return Err("threshold".into())}Some(t as i32)}else{None};
                 narrow_observed(s,p,&mut b,threshold,|b|{
                     let complete=threshold.map_or(b.0==b.1,|t|b.0>=t||b.1<t);
-                    println!("{{\"version\":1,\"progress\":true,\"key\":{},\"mode\":{},\"threshold\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[],\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),threshold.map_or("null".into(),|t|t.to_string()),b.0,b.1,complete);
+                    println!("{{\"batchIndex\":{index},\"version\":1,\"progress\":true,\"key\":{},\"mode\":{},\"threshold\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[],\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),threshold.map_or("null".into(),|t|t.to_string()),b.0,b.1,complete);
                     let _=std::io::stdout().flush();
                 });
                 let complete=threshold.map_or(b.0==b.1,|t|b.0>=t||b.1<t);
-                println!("{{\"version\":1,\"key\":{},\"mode\":{},\"threshold\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[],\"elapsedMs\":{:.3},\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),threshold.map_or("null".into(),|t|t.to_string()),b.0,b.1,complete,now()-started);
+                println!("{{\"batchIndex\":{index},\"version\":1,\"key\":{},\"mode\":{},\"threshold\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[],\"elapsedMs\":{:.3},\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),threshold.map_or("null".into(),|t|t.to_string()),b.0,b.1,complete,now()-started);
                 std::io::stdout().flush().map_err(|e|e.to_string())?;
                 if !complete{break}continue
             }
@@ -75,11 +109,10 @@ pub fn batch(raw:&str,o:&Options)->Result<(),String>{
             if b.0>b.1{return Err("tree contradiction".into())}
             let complete=b.0==b.1&&cs.iter().all(|x|if mode=="all"{x.2.0==x.2.1}else{x.2.0> -b.0||x.2==(-b.0,-b.0)});
             let children=cs.iter().map(|(c,m,cb)|format!("{{\"key\":{},\"lower\":{},\"upper\":{},\"moves\":[{}]}}",json::quote(&key(*c)),cb.0,cb.1,m.iter().map(|m|json::quote(m)).collect::<Vec<_>>().join(","))).collect::<Vec<_>>().join(",");
-            println!("{{\"version\":1,\"key\":{},\"mode\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[{}],\"elapsedMs\":{:.3},\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),b.0,b.1,complete,children,now()-started);
+            println!("{{\"batchIndex\":{index},\"version\":1,\"key\":{},\"mode\":{},\"lower\":{},\"upper\":{},\"complete\":{},\"children\":[{}],\"elapsedMs\":{:.3},\"perspective\":\"side-to-move\"}}",json::quote(k),json::quote(mode),b.0,b.1,complete,children,now()-started);
             std::io::stdout().flush().map_err(|e|e.to_string())?;
             if !complete {break}
         }Ok(())
-    });result
 }
 /// Streaming, read-only seed conversion. Ignore only an incomplete final line.
 pub fn seed(path:&std::path::Path,proof:bool)->Result<(),String>{

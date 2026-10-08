@@ -64,6 +64,21 @@ export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) 
         bestReply:m.bestReply??m.pv?.[1]??null,
       }))};
     },
+    async loadEval3(source) {
+      let bytes;
+      if(source instanceof ArrayBuffer || ArrayBuffer.isView(source)) {
+        bytes=source instanceof ArrayBuffer?new Uint8Array(source):new Uint8Array(source.buffer,source.byteOffset,source.byteLength);
+      } else {
+        const response=await fetch(source);
+        if(!response.ok)throw new Error(`Evaluation HTTP ${response.status}`);
+        bytes=new Uint8Array(await response.arrayBuffer());
+      }
+      const ptr=e.alloc(bytes.length);
+      try {
+        new Uint8Array(e.memory.buffer,ptr,bytes.length).set(bytes);
+        if(e.load_eval3(ptr,bytes.length)!==0)throw new Error('Invalid eval3 weights');
+      } finally {e.free(ptr,bytes.length);}
+    },
     async loadBook(source) {
       let book;
       if(source instanceof ArrayBuffer || ArrayBuffer.isView(source)) return addBinary(source);

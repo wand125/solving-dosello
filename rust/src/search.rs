@@ -77,7 +77,11 @@ pub fn hand_evaluate(p: Position, w: Weights) -> i32 {
         };
     (raw / 8).clamp(-63, 63)
 }
-pub fn evaluate(p:Position,_w:Weights)->i32 {crate::pattern::evaluate(p)}
+pub fn evaluate(p:Position,_w:Weights)->i32 {
+    #[cfg(target_arch="wasm32")]
+    if let Some(m)=crate::wasm_eval3() {return m.evaluate(p)}
+    crate::pattern::evaluate(p)
+}
 #[derive(Clone, Copy, Default)]
 struct Entry {
     position: Position,
@@ -130,6 +134,14 @@ pub fn prove_checkpoint_json(p:Position,o:&Options,path:&std::path::Path)->Resul
 }
 
 pub struct Search {
+    probcut3: crate::probcut::Config,
+    pub probcut_probes: u64,
+    pub probcut_cuts: u64,
+    evaluator3: Option<std::sync::Arc<crate::eval3::Model>>,
+    eval_state: Option<crate::eval3::State>,
+    pub strict_depth: bool,
+    pub eval_ordering: bool,
+    evaluator: Option<std::sync::Arc<crate::eval2::Model>>,
     #[cfg(not(target_arch="wasm32"))]
     parallel: Option<std::sync::Arc<parallel::Pool>>,
     #[cfg(not(target_arch="wasm32"))]
@@ -155,11 +167,26 @@ impl Search {
     pub fn new(entries: usize, deadline: f64) -> Self {
         Self {
             #[cfg(not(target_arch="wasm32"))]
+            probcut3: Default::default(),
+            #[cfg(target_arch="wasm32")]
+            probcut3: crate::wasm_probcut3(),
+            probcut_probes: 0, probcut_cuts: 0,
+            #[cfg(not(target_arch="wasm32"))]
             parallel: None,
             #[cfg(not(target_arch="wasm32"))]
             root_null: false,
             #[cfg(not(target_arch="wasm32"))]
             cancellation: None,
+            evaluator: None,
+            #[cfg(not(target_arch="wasm32"))]
+            evaluator3: None,
+            #[cfg(target_arch="wasm32")]
+            evaluator3: crate::wasm_eval3(),
+            eval_state: None, strict_depth: false,
+            eval_ordering: {
+                #[cfg(target_arch="wasm32")] { crate::wasm_probcut3().ordering }
+                #[cfg(not(target_arch="wasm32"))] { false }
+            },
             age: 0,
             last_empties: 10,
             selectivity: 0,
@@ -178,6 +205,48 @@ impl Search {
     }
     /// Each statistical policy has a separate TT namespace. Terminal searches
     /// never use statistical cuts; depth guards separate heuristics from proofs.
+    /// Changing weights invalidates the TT. Experimental models never reuse old ProbCut fits.
+    pub fn set_evaluator(&mut self, model: Option<std::sync::Arc<crate::eval2::Model>>) {
+        #[cfg(not(target_arch="wasm32"))]
+        assert!(self.shared.is_none(), "custom evaluator requires a private TT");
+        self.clear(); self.probcut3=Default::default(); self.eval_ordering=false; self.evaluator3=None; self.eval_state=None; self.evaluator=model; self.selectivity=0;
+    }
+    pub fn set_eval3(&mut self, model: std::sync::Arc<crate::eval3::Model>) {
+        self.set_evaluator(None); self.evaluator3=Some(model);
+    }
+    /// Reject incompatible tables before mutation; a successful policy change clears the TT.
+    pub fn set_probcut3(&mut self, config: crate::probcut::Config) -> Result<(), String> {
+        if !config.confidence.is_finite() || config.confidence <= 0. { return Err("probcut-t must be finite and positive".into()); }
+        if let Some(table) = &config.table {
+            let model = self.evaluator3.as_ref().ok_or("ProbCut table requires eval3")?;
+            if !table.matches(model) { return Err("ProbCut model checksum mismatch".into()); }
+            #[cfg(not(target_arch="wasm32"))]
+            if self.shared.is_some() { return Err("eval3 ProbCut requires a private TT".into()); }
+        }
+        self.clear(); self.eval_ordering = config.ordering; self.probcut3 = config;
+        Ok(())
+    }
+    pub fn configure(&mut self, o: &Options) {
+        if let Some(model) = &o.eval3 { self.set_eval3(model.clone()); }
+        if o.eval3.is_some() || o.probcut3.table.is_some() || o.probcut3.ordering {
+            self.set_probcut3(o.probcut3.clone()).expect("validated search configuration");
+        }
+    }
+    fn ordering_value(&self, child: Position) -> i32 {
+        if let Some(model) = &self.evaluator3 {
+            let mut state = self.eval_state.unwrap_or_else(|| crate::eval3::State::new(child));
+            state.update(child);
+            model.evaluate_state(&state)
+        } else { self.static_value(child) }
+    }
+    pub fn static_value(&self,p:Position)->i32 {
+        if let Some(m)=&self.evaluator3 {
+            if let Some(s)=&self.eval_state {if s.position==p {return m.evaluate_state(s)}}
+            return m.evaluate(p)
+        }
+        self.evaluator.as_ref().map_or_else(||evaluate(p,self.weights),|m|m.evaluate(p))
+    }
+    pub fn best_move(&self,p:Position)->Option<Move> {let id=self.entry(p).best;p.moves().into_iter().find(|m|m.id()==id)}
     pub fn set_selectivity(&mut self,level:u8) {self.selectivity=level.min(3);}
     pub fn clear(&mut self) {self.table.fill(Bucket::default());}
     fn index(&self, key:u64)->usize {table_hash(key) as usize & (self.table.len()-1)}
@@ -209,7 +278,13 @@ impl Search {
         if let Some(t)=&self.shared {self.age=t.generation.fetch_add(1,std::sync::atomic::Ordering::Relaxed) as u8;}
         self.run_key(p,p.hash(),depth,alpha,beta)
     }
-    fn run_key(&mut self, p: Position,key:u64, depth: u8, mut alpha: i32, beta: i32) -> Result<i32, ()> {
+    fn run_key(&mut self, p: Position,key:u64, depth:u8,alpha:i32,beta:i32)->Result<i32,()> {
+        if self.evaluator3.is_none() {return self.run_body(p,key,depth,alpha,beta)}
+        let previous=self.eval_state;
+        let result=self.run_body(p,key,depth,alpha,beta);
+        self.eval_state=previous; result
+    }
+    fn run_body(&mut self, p: Position,key:u64, depth: u8, mut alpha: i32, beta: i32) -> Result<i32, ()> {
         self.nodes += 1;
         #[cfg(not(target_arch="wasm32"))]
         if self.nodes & 255 == 0 && self.cancelled() { return Err(()); }
@@ -247,7 +322,7 @@ impl Search {
         let original_alpha = alpha;
         let old = self.entry_key(p,key);
         let hit = old.bound != 0 && old.position == p;
-        if hit && old.depth >= depth {
+        if hit && old.depth >= depth && (!self.strict_depth || exact_depth || old.depth == depth) {
             let v = old.value as i32;
             if old.bound == 1 || old.bound == 2 && v >= beta || old.bound == 3 && v <= alpha {
                 return Ok(v);
@@ -262,26 +337,35 @@ impl Search {
             }
             return self.run_key(other,p.pass_hash(key), depth, -beta, -alpha).map(|x| -x);
         }
-        if depth == 0 {
-            return Ok(evaluate(p, self.weights));
+        // TT hits and terminal leaves need no feature updates. Delay the delta
+        // until this position will actually evaluate or expand. Passes retain
+        // the nearest ancestor state, and update() handles the complete delta.
+        if self.evaluator3.is_some() {
+            let mut state=self.eval_state.unwrap_or_else(||crate::eval3::State::new(p));
+            state.update(p); self.eval_state=Some(state);
         }
-        if !exact_depth && self.selectivity>0 && !self.probing {
+        if depth == 0 {
+            return Ok(self.static_value(p));
+        }
+        if !exact_depth && !self.probing && (self.evaluator3.is_some() && self.probcut3.table.is_some() || self.evaluator.is_none() && self.evaluator3.is_none() && self.selectivity>0) {
             let phase=crate::pattern::phase(p);
-            for c in crate::probcut::models().iter().filter(|c|c.phase==phase&&c.deep==depth&&c.n>=100&&c.slope>0.25) {
+            let table = self.probcut3.table.clone();
+            let models = match &table { Some(t) => t.rows(), None => crate::probcut::models() };
+            for c in models.iter().filter(|c|c.phase==phase&&c.deep==depth&&c.n>=100&&c.slope>0.25) {
                 // Conservative confidence multipliers, never advertised as a
                 // Gaussian probability guarantee (residual tails are empirical).
-                let z=match self.selectivity {1=>5.0,2=>4.0,_=>3.0};
+                let z=if self.evaluator3.is_some() {self.probcut3.confidence} else {match self.selectivity {1=>5.0,2=>4.0,_=>3.0}};
                 let margin=z*c.sigma.max(2.0)+2.0;
-                let high=((beta as f64+margin-c.intercept)/c.slope).ceil() as i32;
-                let low=((alpha as f64-margin-c.intercept)/c.slope).floor() as i32;
+                let high=((beta as f64+margin-c.intercept)/c.slope).ceil().clamp(-1000.,1000.) as i32;
+                let low=((alpha as f64-margin-c.intercept)/c.slope).floor().clamp(-1000.,1000.) as i32;
                 self.probing=true;
-                let trial=if high<64&&beta<64 {self.run_key(p,key,c.shallow,high-1,high).map(|v|if v>=high {Some(beta)}else{None})}else{Ok(None)};
+                let trial=if high<64&&beta<64 {self.probcut_probes+=1;self.run_key(p,key,c.shallow,high-1,high).map(|v|if v>=high {Some(beta)}else{None})}else{Ok(None)};
                 self.probing=false;
-                if let Some(v)=trial? {return Ok(v)}
+                if let Some(v)=trial? {self.probcut_cuts+=1;return Ok(v)}
                 self.probing=true;
-                let trial=if low> -64&&alpha> -64 {self.run_key(p,key,c.shallow,low,low+1).map(|v|if v<=low {Some(alpha)}else{None})}else{Ok(None)};
+                let trial=if low> -64&&alpha> -64 {self.probcut_probes+=1;self.run_key(p,key,c.shallow,low,low+1).map(|v|if v<=low {Some(alpha)}else{None})}else{Ok(None)};
                 self.probing=false;
-                if let Some(v)=trial? {return Ok(v)}
+                if let Some(v)=trial? {self.probcut_cuts+=1;return Ok(v)}
             }
         }
         let mut ranks=[0i32;112];
@@ -299,7 +383,7 @@ impl Search {
                     else {self.entry_key(child,ck)};
                 // Enhanced Transposition Cutoff: a child's upper bound is a
                 // lower bound for this node. Only sufficient depths qualify.
-                if e.bound!=0 && e.position==child && e.depth>=depth-1 &&
+                if e.bound!=0 && e.position==child && e.depth>=depth-1 && (!self.strict_depth || exact_depth || e.depth==depth-1) &&
                     (e.bound==1 || e.bound==3) && -(e.value as i32)>=beta {
                     let value=-(e.value as i32);
                     self.save(key,Entry{position:p,value:value as i16,depth,bound:2,best:m.id()});
@@ -307,7 +391,7 @@ impl Search {
                 }
                 let shallow=if depth>=16 {-self.run_key(child,ck,1,-65,65)?} else {0};
                 let parity=if exact_depth && depth<=7 {region_parity(p.empty(),m.a)} else {0};
-                ranks[i]=if hit && m.id()==old.best {-100000} else {if depth>=16 {child.mobility()*4-shallow*8} else {child.mobility()*128-parity*16}};
+                ranks[i]=if hit && m.id()==old.best {-100000} else if !exact_depth && (self.evaluator.is_some() || self.evaluator3.is_some() && self.eval_ordering) {self.ordering_value(child)*128+child.mobility()*4} else {if depth>=16 {child.mobility()*4-shallow*8} else {child.mobility()*128-parity*16}};
             }
         } else if hit {
             if let Some(i)=ms.iter().position(|m|m.id()==old.best) {ms.swap(0,i);}
@@ -394,7 +478,7 @@ impl Search {
         #[cfg(not(target_arch="wasm32"))]
         if !wld && self.root_null {
             let (mut lower,mut upper)=(-64,64);
-            let mut guess=evaluate(p,self.weights)/2*2;
+            let mut guess=self.static_value(p)/2*2;
             while lower<upper {
                 let beta=if guess==lower {guess+2}else{guess};
                 guess=self.run(p,d,beta-1,beta)?;
@@ -406,7 +490,7 @@ impl Search {
             self.run(p, d, -1, 1).map(i32::signum)
         } else {
             let mut lo=-64;let mut hi=64;
-            let mut guess=evaluate(p,self.weights);let mut width=8;
+            let mut guess=self.static_value(p);let mut width=8;
             loop {
                 let a=(guess-width).max(lo-1); let b=(guess+width).min(hi+1);
                 let v=self.run(p,d,a,b)?;
@@ -423,7 +507,7 @@ impl Search {
         let d=(p.empty().count_ones()/2) as u8;
         let deadline=self.deadline;let start=now();self.set_selectivity(1);
         self.deadline=start+(deadline-start).max(0.0)*0.1;
-        let mut guess=evaluate(p,self.weights);
+        let mut guess=self.static_value(p);
         for depth in 1..d {match self.run(p,depth,-65,65){Ok(v)=>guess=v,Err(_)=>break}}
         self.deadline=deadline;self.aborted=false;
         // Existing heuristic TT entries have depth strictly below terminal
@@ -485,6 +569,8 @@ pub struct MoveValue {
 }
 #[derive(Clone)]
 pub struct Options {
+    pub eval3: Option<std::sync::Arc<crate::eval3::Model>>,
+    pub probcut3: crate::probcut::Config,
     pub time_ms: u64,
     pub threads: usize,
     pub exact: bool,
@@ -495,6 +581,7 @@ pub struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
+            eval3: None, probcut3: Default::default(),
             time_ms: 1000,
             selectivity: 1,
             selective_exact: false,
@@ -522,7 +609,7 @@ fn analyze_move(p: Position, m: Move, o: &Options, deadline: f64, s: &mut Search
     s.aborted = false;
     let mut result = MoveValue {
         mv: m,
-        value: -evaluate(child, s.weights),
+        value: -s.static_value(child),
         exact: false,
         depth: 0,
         pv: vec![m.to_string()],
@@ -614,9 +701,9 @@ pub fn analyze(p: Position, o: &Options) -> Analysis {
         };
     }
     let workers = o.threads.max(1).min(ms.len());
-    let entries = if workers>1 {4}else{o.tt_entries};
+    let entries = if workers>1 && o.eval3.is_none() {4}else{o.tt_entries / workers};
     #[cfg(not(target_arch="wasm32"))]
-    let shared=if workers>1 {Some(std::sync::Arc::new(SharedTable::new(o.tt_entries)))} else {None};
+    let shared=if workers>1 && o.eval3.is_none() {Some(std::sync::Arc::new(SharedTable::new(o.tt_entries)))} else {None};
     #[cfg(not(target_arch = "wasm32"))]
     let mut values: Vec<MoveValue>;
     #[cfg(target_arch = "wasm32")]
@@ -634,6 +721,7 @@ pub fn analyze(p: Position, o: &Options) -> Analysis {
                 jobs.push(scope.spawn(move || {
                     let mut out = vec![];
                     let mut search = Search::new(entries, deadline);
+                    search.configure(o);
                     search.set_selectivity(o.selectivity);
                     search.shared=shared;
                     loop {
@@ -658,6 +746,7 @@ pub fn analyze(p: Position, o: &Options) -> Analysis {
     #[cfg(target_arch = "wasm32")]
     {
         let mut search = Search::new(entries, deadline);
+                    search.configure(o);
         for (i, m) in ms.iter().enumerate() {
             let local_deadline = now() + (deadline - now()).max(0.0) / (ms.len() - i) as f64;
             values.push(analyze_move(p, *m, o, local_deadline, &mut search));
@@ -780,9 +869,9 @@ pub fn prove_json(p:Position,o:&Options)->String {
 /// best move. Analysis mode separately supplies a value for every legal move.
 pub fn choose(p:Position,o:&Options)->Analysis {
  let ms=p.moves();if ms.is_empty(){return analyze(p,o)}
- let start=now();let mut s=Search::new(o.tt_entries,start+o.time_ms as f64);s.set_selectivity(o.selectivity);
- let fallback=*ms.iter().max_by_key(|m|-evaluate(p.play(**m),Weights::default())).unwrap();
- let mut best=MoveValue{mv:fallback,value:-evaluate(p.play(fallback),Weights::default()),exact:false,depth:0,pv:vec![fallback.to_string()],nodes:0};
+ let start=now();let mut s=Search::new(o.tt_entries,start+o.time_ms as f64);s.configure(o);s.set_selectivity(o.selectivity);
+ let fallback=*ms.iter().max_by_key(|m|-s.static_value(p.play(**m))).unwrap();
+ let mut best=MoveValue{mv:fallback,value:-s.static_value(p.play(fallback)),exact:false,depth:0,pv:vec![fallback.to_string()],nodes:0};
  let max=(p.empty().count_ones()/2) as u8;
  for d in 1..=max {if now()>=s.deadline{break}
      let Ok(value)=s.run(p,d,-65,65) else{break};
