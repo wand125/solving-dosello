@@ -42,7 +42,7 @@ test('canonical cache includes pairs and turn and maps rotated best moves back',
  assert.equal(cache.get(s,'a1-b1'),null);
 });
 const wasm=readFileSync(new URL('../docs/play/wasm/dosello_ai.wasm',import.meta.url));
-const book=readFileSync(new URL('../docs/play/wasm/opening-book.bin',import.meta.url));
+const book=readFileSync(new URL('../docs/play/wasm/display-book.bin',import.meta.url));
 test('full saved perfect line has zero proven loss; cached reopening does no engine work',async t=>{
  const ai=await init(wasm);await ai.loadBook(book);
  const records=readFileSync(new URL('../docs/data/perfect-line.jsonl',import.meta.url),'utf8').trim().split('\n').map(JSON.parse);

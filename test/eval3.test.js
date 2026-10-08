@@ -19,7 +19,7 @@ test('shipped eval3 weights load in WASM, search legally, and preserve the prove
  assert(legal.includes(result.bestMove));
  await assert.rejects(ai.loadEval3(new Uint8Array([1,2,3])),/Invalid eval3/);
  assert(legal.includes(ai.analyze(position,{timeMs:20,bestOnly:true}).bestMove));
- await ai.loadBook(read('../docs/play/wasm/opening-book.bin'));
+ await ai.loadBook(read('../docs/play/wasm/display-book.bin'));
  const move=ai.getBook(position).moves.find(m=>m.move==='f3-f4');
  assert.equal(move.value,2);assert.equal(move.exact,true);
  const chosen=ai.analyze(position,{timeMs:3000,bestOnly:true});
@@ -40,9 +40,9 @@ test('worker awaits weights before search and quietly falls back on fetch failur
   const calls=[],messages=[];
   const ai={async loadEval3(){calls.push('weights');await Promise.resolve();if(fails)throw Error('unavailable');calls.push('loaded');},async loadBook(){calls.push('book');},getBook(){return null;},analyze(){calls.push('search');return {bestMove:'f3-f4'};}};
   const self={postMessage:m=>messages.push(m)};
-  runInNewContext(source.replaceAll('import.meta.url',"'https://example.invalid/play/worker.js'"),{init:async()=>ai,self,URL});
+  runInNewContext(source.replaceAll('import.meta.url',"'https://example.invalid/play/worker.js'"),{init:async()=>ai,loadToolBook:async()=>null,self,URL});
   await self.onmessage({data:{id:1,position:'',timeMs:3000,bestOnly:true}});
-  assert.deepEqual(calls,fails?['weights','book','search']:['weights','loaded','book','search']);
+  assert.deepEqual(calls,fails?['weights','book','search']:['weights','book','loaded','search']);
   assert.deepEqual(messages.map(m=>m.kind),['book','result']);
   assert.equal(messages[0].bookError,null);
  }

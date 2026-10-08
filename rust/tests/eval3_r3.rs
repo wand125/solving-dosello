@@ -168,7 +168,7 @@ fn book_only_plays_proven_and_fully_covered_moves() {
 }
 #[test]
 fn shipped_small_book_proves_initial_move() {
-    let book = MatchBook::decode(include_bytes!("../../docs/play/wasm/opening-book.bin")).unwrap();
+    let book = MatchBook::decode(include_bytes!("../../docs/play/wasm/display-book.bin")).unwrap();
     assert!(book.best(Position::initial()).is_some());
     assert!(!book.is_empty());
 }

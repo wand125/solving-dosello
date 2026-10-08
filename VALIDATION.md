@@ -1,4 +1,39 @@
-# Eval3 staging validation — 2026-10-08
+# Split-book release validation — 2026-10-09
+
+This section supersedes the historical staging notes below. The eval3 model is already present in this checkout; the old missing-model release block no longer applies. This revision splits AI decision data from analysis values, preserves the CSPs and English default/Japanese toggle, and removes the unused opening-book binary. No external network, push, SSH or source-project writes were performed. HTTP and Chromium used IPv6 loopback only; the browser harness blocks external traffic. No dependencies were added.
+
+## Shipped data and behavior
+
+| Asset | Format / positions | Bytes | SHA-256 |
+|---|---|---:|---|
+| `docs/play/wasm/tool-book.bin` | DSTOOL01 / 10,977 | 395,184 | `05509260e92681c6e3d8b586b00caeaed0e0c693d7389ee250081e09ce165ac8` |
+| `docs/play/wasm/display-book.bin` | canonical DSBOOK03 / 15,808 | 2,229,033 | `7fa7a6109390a6d5cd08aa25f8301618ee78257d15276663dde83d36d25d42d3` |
+
+TOOL is the supplied round-002 hardening export. AI play uses its proven move without searching; outside TOOL it bypasses DISPLAY's selection shortcuts and runs the existing 3000 ms eval3 search. Analysis-off hints prefer TOOL. DISPLAY feeds the table, overlay and review, with symmetry restoration and unchanged exact/bound/estimate semantics. Either file may fail independently: remaining data stays usable and missing data falls back to search. The previous evaluator remains the fallback if eval3 weights fail to load.
+
+The paper's empty-cell counts were counted from the shipped TOOL file. Its miss-rate and 400-game deviation figures are supplied source-project measurements, not rerun benchmarks or a fresh evaluation of the final hardened file. No new optimality proofs were computed. The Rust reader validates format, canonical positions and legal moves; it trusts the supplied proof provenance. The native `MatchBook` reader/exporter and `tool_book_build` are included; the module is excluded from WASM, so the existing tested WASM binary did not require rebuilding. The WASM build script now also runs the split-book smoke tests.
+
+## Checks
+
+| Check | Result |
+|---|---|
+| `npm test` with temporary fetch-blocking preload | PASS: 42 tests, zero failures/skips; cached optional original fixture, no download |
+| `DOSELLO_OFFLINE=1 npm test` | PASS: 42 tests, zero failures/skips |
+| Split-book Node smoke | PASS: TOOL root f3-f4/c5-c6, +2; six sampled entries through all eight symmetries; malformed TOOL rejected; DISPLAY root f3-f4 exact +2 and exact/bound/estimate symmetry checks |
+| Worker fallbacks | PASS: all TOOL/DISPLAY present/missing combinations in AI and analysis modes; TOOL avoids search, AI fallback bypasses DISPLAY and retains 3000 ms; evaluation-load failure remains covered |
+| Existing review/certificate checks | PASS: all 758 certificate positions retain bounds; saved perfect-line review has no proven loss; review exact/bound handling unchanged |
+| `cargo test --release --offline --manifest-path rust/Cargo.toml` | PASS: 56 tests, zero failures; includes full TOOL validation/roundtrip and existing exact/parallel proof tests |
+| IPv6 HTTP smoke | PASS: all 34 assets plus both page routes returned HTTP 200 |
+| Local Chromium smoke | PASS: AI colors, hints, analysis on/off, review, input, responsive layouts, EN/JA persistence, and split-book benchmark text in both languages; no CSP errors. Updated stale pre-eval3 strength assertions to the already published 397-win result |
+| Localization / CSP | PASS: both CSP strings byte-for-byte unchanged; English HTML default and Japanese translations retained |
+| Privacy scan | PASS: tracked and new non-ignored public files, including binaries, contain no absolute home paths, requested private machine/person markers or email addresses. Existing real-name attributions were changed to the public handle `wand125`, including the MIT copyright line |
+| `git diff --check` | PASS |
+
+Final `docs/` payload: **11,122,665 bytes (11.12 MB / 10.61 MiB)**, about 3.08 MB smaller than the previous combined-book deployment. The two books total **2,624,217 bytes**. Generated build targets, optional cached original assets and Git metadata are excluded from the shipped-file privacy/size scan.
+
+---
+
+# Historical eval3 staging validation — 2026-10-08
 
 **Release blocked; not committed:** the requested `../dosello/rust/data/eval3-r2.bin` is absent. A read-only filename scan of the source project also found no copy of that trained model. The experimental `results/eval/r2/` weights use only a tiny training subset and were not substituted. The code, documentation and rebuilt WASM are staged in the working tree, but the documented eval3 release is not ready until the intended weights are supplied and the release checks pass.
 

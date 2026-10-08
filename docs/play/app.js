@@ -8,7 +8,7 @@ import {normalize,parseSequence} from './record.js';
 import {dictionaries} from './i18n.js';
 import {languageController} from '../language.js';
 const $=id=>document.getElementById(id);
-let states=[initialState()],record=[],cursor=0,selected=null,analysis=[],book=null,result=null,best=[],worker=null,generation=0,busy=false,hinted=null,paused=false,descending=true,lang='en',message='loading',detail='';
+let states=[initialState()],record=[],cursor=0,selected=null,analysis=[],book=null,tool=null,result=null,best=[],worker=null,generation=0,busy=false,hinted=null,paused=false,descending=true,lang='en',message='loading',detail='';
 let savedAnalysis;try{savedAnalysis=localStorage.getItem('dosello-analysis');}catch{}
 let showAnalysis=resolveAnalysis(location.search,savedAnalysis);
 let review;
@@ -50,7 +50,7 @@ function syncSequence(){$('sequence').value=record.slice(0,cursor).join(' ');}
 function play(m){review?.reset();states=states.slice(0,cursor+1);record=record.slice(0,cursor);record.push(formatMove(m));states.push(normalize(applyMove(state(),m)));cursor++;paused=false;syncSequence();refresh();}
 function jump(i){cursor=i;paused=true;syncSequence();refresh();}
 function refresh(){
- placement.cancel();cancel();selected=null;analysis=[];book=null;result=null;best=[];hinted=null;
+ placement.cancel();cancel();selected=null;analysis=[];book=null;tool=null;result=null;best=[];hinted=null;
  if(review?.active()){status('paused');draw();return;}
  if(isGameOver(state())){const s=score(state());status('over',`${s.black}–${s.white} · ${s.difference===0?t('draw'):t(s.difference>0?'black':'white')+' '+t('wins')}`);draw();review?.auto();return;}
  status(paused?'paused':human()?'loading':'thinking');busy=true;draw();const id=generation;
@@ -59,14 +59,14 @@ function refresh(){
  worker.onmessage=({data})=>{
   if(id!==generation||data.id!==id)return;
   if(data.kind==='error'){busy=false;status('error');draw();return;}
-  book=data.book;result=data.result??null;const merged=new Map(mergeValues(book,result).map(m=>[m.move,m]));analysis=legalMoves(state()).map(m=>merged.get(formatMove(m))??{move:formatMove(m)});best=bestMoves(analysis);
+  book=data.book;tool=data.tool;result=data.result??null;const merged=new Map(mergeValues(book,result).map(m=>[m.move,m]));analysis=legalMoves(state()).map(m=>merged.get(formatMove(m))??{move:formatMove(m)});best=bestMoves(analysis);
   // A proven best move from the book is played at once; search only decides outside proven positions.
-  const proven=provenBest(analysis);
+  const toolMove=tool?.bestMove;
   if(data.kind==='book'){
-   if(!human()&&!paused&&proven.length){const m=legalMoves(state()).find(m=>formatMove(m)===proven[0]);if(m){cancel();play(m);return;}}
+   if(!human()&&!paused&&toolMove){const m=legalMoves(state()).find(m=>formatMove(m)===toolMove);if(m){cancel();play(m);return;}}
    if(data.bookError)status('bookError');draw();return;}
   busy=false;
-  if(!human()&&!paused){const name=proven[0]??result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
+  if(!human()&&!paused){const name=toolMove??result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
   else status(paused?'paused':data.bookError?'bookError':'idle');draw();
  };
  worker.postMessage({id,position:toOriginal(state()),timeMs:3000,bestOnly:!human()&&!paused});
@@ -86,7 +86,7 @@ $('new').onclick=()=>{review.reset();states=[initialState()];record=[];cursor=0;
 $('mode').onchange=()=>{review.close();paused=false;refresh();};
 function toggleAnalysis(e){showAnalysis=e.target.checked;try{localStorage.setItem('dosello-analysis',showAnalysis?'1':'0');}catch{}const url=new URL(location.href);url.searchParams.set('analysis',showAnalysis?'1':'0');history.replaceState(null,'',url);draw();}
 for(const id of ['analysis','analysis-quick'])$(id).onchange=toggleAnalysis;
-$('hint').onclick=()=>{hinted=best[0]??null;status(best.length?'candidate':'waiting',best.join(' / '));draw();};
+$('hint').onclick=()=>{const choices=!showAnalysis&&tool?.bestMove?[tool.bestMove]:best;hinted=choices[0]??null;status(choices.length?'candidate':'waiting',choices.join(' / '));draw();};
 $('undo').onclick=()=>{if(!cursor)return;let i=cursor-1;if(!($('mode').value==='two'))while(i>0&&states[i].turn!==($('mode').value==='black'?1:-1))i--;jump(i);};
 $('redo').onclick=()=>{if(cursor<record.length)jump(cursor+1);};
 $('sort').onclick=()=>{descending=!descending;$('value-heading').setAttribute('aria-sort',descending?'descending':'ascending');$('sort-arrow').textContent=descending?'↓':'↑';draw();};

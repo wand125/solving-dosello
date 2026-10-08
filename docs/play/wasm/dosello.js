@@ -1,3 +1,5 @@
+import {canonical,cell} from './book-symmetry.js';
+import {initialState,toOriginal} from '../engine/rules.js';
 /** Raw std-only WASM. Synchronous analyze: run in a Web Worker for responsive UI. */
 export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) {
   const bytes = url instanceof ArrayBuffer || ArrayBuffer.isView(url) ? url : await (await fetch(url)).arrayBuffer();
@@ -33,8 +35,8 @@ export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) 
   const unpack=r=>{const b=new Uint8Array(12+r.end-r.start);b.set(new TextEncoder().encode(r.magic));new DataView(b.buffer).setUint32(8,1,true);b.set(r.bytes.subarray(r.start,r.end),12);return decodeBook(b).entries[0].analysis;};
   const key = p => typeof p === 'string' ? `moves:${p.trim()}` : JSON.stringify([p.board,p.shape,p.turn??1]);
   const api = {
-    analyze(position = '', { timeMs = 1000, exactIfPossible = true, bestOnly = false, reviewSolve = false, valueOnly = false, ttMb = 32 } = {}) {
-      const book = api.getBook(position);
+    analyze(position = '', { timeMs = 1000, exactIfPossible = true, bestOnly = false, reviewSolve = false, valueOnly = false, useBook = true, ttMb = 32 } = {}) {
+      const book = useBook ? api.getBook(position) : null;
       if (!reviewSolve && book && book.moves.length && (book.complete === true && book.moves.every(m=>m.exact && Number.isInteger(m.value)) || bestOnly && book.exact && book.moves.some(m=>m.exact && m.value===book.value))) {
         const moves=structuredClone(book.moves).map(m=>({
           ...m,
@@ -56,9 +58,18 @@ export async function init(url = new URL('./dosello_ai.wasm', import.meta.url)) 
       } finally {e.free(ptr,input.length);}
     },
     getBook(position) {
-      let book=books.get(key(position));
+      let book=books.get(key(position)),inverse=null;
       if(!book){const record=binaryBooks.get(packedKey(position));if(record)book=unpack(record);}
+      if(!book && (typeof position!=='string'||position.trim()==='')){
+        const k=canonical(typeof position==='string'?toOriginal(initialState()):position);
+        const record=binaryBooks.get(k.bits.map(b=>b.toString(16)).join('/')+'/'+k.side);
+        if(record){book=unpack(record);inverse=Array(64);for(let a=0;a<64;a++)inverse[cell(a,k.transform)]=a;}
+      }
       if(!book || !Array.isArray(book.moves))return null;
+      if(inverse){
+        const name=move=>move.split('-').map(c=>inverse[(Number(c[1])-1)*8+c.charCodeAt(0)-97]).sort((a,b)=>a-b).map(a=>String.fromCharCode(97+a%8)+(1+(a>>3))).join('-');
+        book={...book,moves:book.moves.map(m=>({...m,move:name(m.move),cells:m.cells.map(a=>inverse[a]).sort((a,b)=>a-b),pv:m.pv.map(name)}))};
+      }
       return {...structuredClone(book),source:'book',moves:book.moves.filter(m=>Number.isFinite(m.value)).map(m=>({
         ...structuredClone(m),source:'book',cells:m.cells??m.move.split('-').map(c=>(Number(c[1])-1)*8+c.charCodeAt(0)-97),
         bestReply:m.bestReply??m.pv?.[1]??null,

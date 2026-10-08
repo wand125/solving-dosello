@@ -10,7 +10,7 @@ test('WASM searches legally without a book, then compact book proves +2',async()
  const ai=await init(read('../docs/play/wasm/dosello_ai.wasm'));
  const p=toOriginal(initialState()),r=ai.analyze(p,{timeMs:50});
  assert(legalMoves(initialState()).some(m=>formatMove(m)===r.bestMove));assert.equal(r.moves.length,20);
- await ai.loadBook(read('../docs/play/wasm/opening-book.bin'));
+ await ai.loadBook(read('../docs/play/wasm/display-book.bin'));
  const book=ai.getBook(p);assert.equal(book.value,2);assert.equal(book.exact,true);
  for(const name of ['f3-f4','c5-c6']){const m=book.moves.find(m=>m.move===name);assert(m.exact);assert.equal(m.value,2);assert.equal(valueLabel(m),'Exact +2');}
  const merged=mergeValues(book,r);assert.deepEqual(bestMoves(merged).sort(),['c5-c6','f3-f4']);

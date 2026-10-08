@@ -114,8 +114,8 @@ try{
  await evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))");assert.equal(await evaluate("document.querySelector('#sequence').value"),'f3-f4 e6-f6 d7-e7');
  await evaluate("document.querySelectorAll('#record button')[1].click()");assert.equal(await evaluate("document.querySelector('#sequence').value"),'f3-f4');
  await evaluate("document.querySelector('[data-language=ja]').click()");assert.equal(await evaluate('document.documentElement.lang'),'ja');assert.equal(await evaluate('document.title'),'DOSELLO 解析ツール');
- await navigate('');await until("document.documentElement.lang==='ja'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/194勝/);
- await navigate('?lang=en');await until("document.documentElement.lang==='en'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/194 wins/);
+ await navigate('');await until("document.documentElement.lang==='ja'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/397勝/);assert.match(await evaluate("document.querySelector('#computation').textContent"),/381勝2分17敗/);
+ await navigate('?lang=en');await until("document.documentElement.lang==='en'");assert.match(await evaluate("document.querySelector('#strength').textContent"),/397 wins/);assert.match(await evaluate("document.querySelector('#computation').textContent"),/381 wins, 2 draws, 17 losses/);
  await evaluate("document.querySelector('#pv-next').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/Ply 1/);
  await evaluate("document.querySelector('[data-language=ja]').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/1手目/);
  await evaluate("document.querySelector('#pv-last').click()");assert.match(await evaluate("document.querySelector('#pv-caption').textContent"),/黒 30・白 28/);
@@ -173,7 +173,7 @@ try{
   }
  }
  await call('Emulation.clearDeviceMetricsOverride');
- await call('Emulation.setScriptExecutionDisabled',{value:true});await navigate('?lang=en');assert.equal(await evaluate('document.documentElement.lang'),'en');assert.match(await evaluate("document.querySelector('#strength').textContent"),/194 wins/);
+ await call('Emulation.setScriptExecutionDisabled',{value:true});await navigate('?lang=en');assert.equal(await evaluate('document.documentElement.lang'),'en');assert.match(await evaluate("document.querySelector('#strength').textContent"),/397 wins/);assert.match(await evaluate("document.querySelector('#computation').textContent"),/381 wins, 2 draws, 17 losses/);
  assert.deepEqual(errors.filter(e=>!e.includes('favicon')),[]);
  console.log('PASS browser: progressive review, bound loss, phone auto-open, cancellation, cached reopen, retry, fixed AI time, analysis visibility, single-move hint, preference/URL/shortcut, uninterrupted AI, CSP/WASM/Worker, 20 moves, book +2, best outlines, sequence, undo/redo, record jump, both AI colors, language persistence/override, translated PV, mouse/touch/pen drag and cancellation, illegal preview, keyboard placement, AI gating, portrait and landscape layouts');
 }finally{clearTimeout(deadline);await call('Browser.close',{},null).catch(()=>{});chrome.kill();await new Promise(r=>setTimeout(r,500));rmSync(profile,{recursive:true,force:true});}

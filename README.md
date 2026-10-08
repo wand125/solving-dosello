@@ -36,7 +36,7 @@ On phones, New / Undo / Redo / Hint sit below the board. Settings contains mode,
 
 The analyzer uses a slim toolbar, a large SVG domino board and a dense sortable move table. It supports AI play as either color, two players, hints, optional analysis, undo/redo, clickable numbered game records and sequence import/copy. Reviewing a record pauses AI; making a move or changing mode resumes the selected mode. Sequence import accepts placements such as `f3-f4 e6-f6 d7-e7`; forced passes are automatic and do not consume a placement number. **N** new, **U / ←** undo, **→** redo, **H** hint, **A** analysis; input fields retain normal typing behavior.
 
-The AI thinks 3 seconds per move outside the opening book. Proven book moves are played immediately.
+The AI plays proven moves from TOOL immediately; otherwise it searches with eval3 for 3 seconds per move. Analysis-off hints also prioritize TOOL. DISPLAY supplies the analysis table, overlay and post-game review, preserving exact/bound/estimate distinctions. Each missing book falls back independently to search.
 
 **Review** opens automatically at game end, or on demand for all moves played. With Analysis off, an ongoing game asks once before revealing answers. Book proofs appear first, then targeted WASM endgame proofs, then estimates (about 1 second per position on desktop / 0.5 seconds on phones). Exact attempts have a 2-second / 1-second position budget; timeouts retain bounds or fall back to estimates. The exact threshold defaults to 30 empty cells (26 on phones); `?reviewEmpties=24` overrides it. Review never automatically runs during play.
 
@@ -52,7 +52,7 @@ Rebuild the bundled WASM with an already installed `wasm32-unknown-unknown` Rust
 bash rust/tools/build-wasm.sh
 ```
 
-This also updates the demo rules copy. The approximately 5.6 MB compact book was previously generated; large journals and sharded books are excluded. The full book-learning process is not reproducible from this subset. A proof-only book can be regenerated with `rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json`; it is not identical to the bundled full compact book.
+This also updates the demo rules copy. The two pre-generated books total approximately 2.62 MB; large journals and sharded books are excluded. The full book-learning process is not reproducible from this subset. A proof-only book can be regenerated with `rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json`; it is not identical to the bundled full compact book.
 
 ## Perfect-play line
 
@@ -139,7 +139,7 @@ docs/    Bilingual paper, analyzer and measurement data
 test/    Independent tests and optional original-code comparison
 ```
 
-Original code and documentation in this project use [MIT](LICENSE), copyright © 2026 Hiroaki Hosono (@wand125). Original DOSELLO remains its creator's work and is outside this license. No affiliation or endorsement is implied. Othello comparison values are quoted from the cited paper (arXiv version).
+Original code and documentation in this project use [MIT](LICENSE), copyright © 2026 wand125. Original DOSELLO remains its creator's work and is outside this license. No affiliation or endorsement is implied. Othello comparison values are quoted from the cited paper (arXiv version).
 
 ---
 
@@ -191,7 +191,7 @@ WASMは同梱済みです。再ビルドにはインストール済みの `wasm3
 bash rust/tools/build-wasm.sh
 ```
 
-Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必要としません。GitHub Pagesには `docs/` のみで配置でき、相対パスで動きます。ルールを編集した場合も上のコマンドでデモ用コピーを更新できます。小型定石は元プロジェクトで生成済みのもの（約5.6 MB）で、巨大なジャーナル・分割ブックは含めません。公開されていない定石の全学習過程は、このセットだけから完全再現できません。証明由来の小型ブックだけなら、`rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json` で作れます（同梱ブック全体と同一ではありません）。
+Worker内の通常WASMを使い、共有メモリ・COOP/COEP・外部CDNを必要としません。GitHub Pagesには `docs/` のみで配置でき、相対パスで動きます。ルールを編集した場合も上のコマンドでデモ用コピーを更新できます。TOOL・DISPLAY定石は元プロジェクトで生成済みのもの（合計約2.62 MB）で、巨大なジャーナル・分割ブックは含めません。公開されていない定石の全学習過程は、このセットだけから完全再現できません。証明由来の小型ブックだけなら、`rust/target/release/book_export --book exports/missing.jsonl --output exports/proof-only.json --copy exports/proof-only-copy.json` で作れます（同梱ブック全体と同一ではありません）。
 
 ### 遊び方
 
@@ -280,4 +280,12 @@ docs/         静的論文ページ、新規WASM対局デモ、集計データ
 test/         独自コードの検査と任意の外部オラクル照合
 ```
 
-独自コード・文書は [MIT](LICENSE)。著作権者は Hiroaki Hosono (@wand125) です。原作DOSELLOの権利は原作者に帰属し、**このMITライセンスには含まれません**。原作との提携・公認を意味しません。
+独自コード・文書は [MIT](LICENSE)。著作権者は wand125 です。原作DOSELLOの権利は原作者に帰属し、**このMITライセンスには含まれません**。原作との提携・公認を意味しません。
+
+## Split books
+
+`docs/play/wasm/tool-book.bin` (DSTOOL01, 395,184 bytes) holds **10,977 proven decision positions**, including adversarial hardening additions. `display-book.bin` (canonical DSBOOK03, 2,229,033 bytes) holds **15,808 analysis positions**; estimates were recomputed with eval3 at 1 s/position while exact values and bounds were retained. Both loaders restore moves from canonical symmetry to the current board. The old `opening-book.bin` is no longer used or shipped.
+
+The [bilingual paper](docs/index.html#computation) gives counts by empty cells, collection/proof methodology and the supplied 400-game deviation benchmark: with TOOL **381–2–17 (95.5% score)**, without **369–5–26 (92.9%)**, against the previous AI at 3 s/move. These source-project measurements were not rerun here and are not a fresh benchmark of the final hardened file. Full collection journals are not included. Rust's `tool_book_build --input proof-book.bin --output tool-book.bin` validates DSBOOK02/03 proof coverage and emits proven-only DSTOOL01; it cannot reproduce the full collection from this repository alone.
+
+TOOLは追加強化を含む証明済み10,977局面で、AIと解析オフ時のヒントに使用します。未収録・読込失敗時のAIはeval3で3秒探索します。DISPLAYは解析・盤面表示・対局後レビュー用の15,808局面で、推定値をeval3の1秒/局面で更新し、確定値・境界は保持しています。DISPLAYの読込失敗時も探索で動作します。空き数別集計・証明方法・提供対戦成績は日英論文に掲載しました。提供成績は今回の再測定ではなく、同梱の最終強化版の新たな評価でもありません。
