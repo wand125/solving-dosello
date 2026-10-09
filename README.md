@@ -284,8 +284,8 @@ test/         独自コードの検査と任意の外部オラクル照合
 
 ## Split books
 
-`docs/play/wasm/tool-book.bin` (DSTOOL01, 516,576 bytes) holds **14,349 proven decision positions**, including adversarial hardening additions. `display-book.bin` (canonical DSBOOK03, 2,229,033 bytes) holds **15,808 analysis positions**; estimates were recomputed with eval3 at 1 s/position while exact values and bounds were retained. Both loaders restore moves from canonical symmetry to the current board. The old `opening-book.bin` is no longer used or shipped.
+`docs/play/wasm/tool-book.bin` (DSTOOL01, 553,188 bytes) holds **15,366 proven decision positions**, including adversarial hardening additions. `display-book.bin` (canonical DSBOOK03, 2,229,033 bytes) holds **15,808 analysis positions**; estimates were recomputed with eval3 at 1 s/position while exact values and bounds were retained. Both loaders restore moves from canonical symmetry to the current board. The old `opening-book.bin` is no longer used or shipped.
 
 The [bilingual paper](docs/index.html#computation) gives counts by empty cells, collection/proof methodology and the supplied 400-game deviation benchmark: with TOOL **381–2–17 (95.5% score)**, without **369–5–26 (92.9%)**, against the previous AI at 3 s/move. These source-project measurements were not rerun here and are not a fresh benchmark of the final hardened file. Full collection journals are not included. Rust's `tool_book_build --input proof-book.bin --output tool-book.bin` validates DSBOOK02/03 proof coverage and emits proven-only DSTOOL01; it cannot reproduce the full collection from this repository alone.
 
-TOOLは追加強化を含む証明済み14,349局面で、AIと解析オフ時のヒントに使用します。未収録・読込失敗時のAIはeval3で3秒探索します。DISPLAYは解析・盤面表示・対局後レビュー用の15,808局面で、推定値をeval3の1秒/局面で更新し、確定値・境界は保持しています。DISPLAYの読込失敗時も探索で動作します。空き数別集計・証明方法・提供対戦成績は日英論文に掲載しました。提供成績は今回の再測定ではなく、同梱の最終強化版の新たな評価でもありません。
+TOOLは追加強化を含む証明済み15,366局面で、AIと解析オフ時のヒントに使用します。未収録・読込失敗時のAIはeval3で3秒探索します。DISPLAYは解析・盤面表示・対局後レビュー用の15,808局面で、推定値をeval3の1秒/局面で更新し、確定値・境界は保持しています。DISPLAYの読込失敗時も探索で動作します。空き数別集計・証明方法・提供対戦成績は日英論文に掲載しました。提供成績は今回の再測定ではなく、同梱の最終強化版の新たな評価でもありません。
