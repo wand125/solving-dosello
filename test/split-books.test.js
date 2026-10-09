@@ -39,7 +39,7 @@ test('DISPLAY preserves root +2 and exact/bound/estimate values under symmetry',
  const r=ai.getBook(root).moves.find(m=>m.move==='f3-f4');assert.equal(r.value,2);assert(r.exact);
  const searched=ai.analyze(root,{bestOnly:true,timeMs:10,useBook:false});
  assert.notEqual(searched.source,'book');assert(legalMoves(initialState()).map(formatMove).includes(searched.bestMove));
- const entries=decodeBook(displayBytes).entries;assert.equal(entries.length,15808);
+ const entries=decodeBook(displayBytes).entries;assert.equal(entries.length,20355);
  for(const kind of ['exact','upper','heuristic']){
   const entry=entries.find(e=>e.analysis.moves.some(m=>m.bound===kind));assert(entry);
   for(let t=0;t<8;t++){
