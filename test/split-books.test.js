@@ -21,7 +21,7 @@ function rotate(position,t){
  return toOriginal(q);
 }
 test('TOOL returns the proven root and sample moves through all eight symmetries',()=>{
- const book=decodeToolBook(toolBytes);assert.equal(book.size,10977);
+ const book=decodeToolBook(toolBytes);assert.equal(book.size,14349);
  const r=book.lookup(root);assert(['f3-f4','c5-c6'].includes(r.bestMove));assert.equal(r.value,2);assert(r.exact);
  for(const index of [0,100,1000,5000,9000,10976]){
   const sample=toolRow(index),base=book.lookup(sample.position);assert.deepEqual(base.moves[0].cells,sample.cells);assert.equal(base.value,sample.value);

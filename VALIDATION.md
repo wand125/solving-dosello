@@ -6,7 +6,7 @@ This section supersedes the historical staging notes below. The eval3 model is a
 
 | Asset | Format / positions | Bytes | SHA-256 |
 |---|---|---:|---|
-| `docs/play/wasm/tool-book.bin` | DSTOOL01 / 10,977 | 395,184 | `05509260e92681c6e3d8b586b00caeaed0e0c693d7389ee250081e09ce165ac8` |
+| `docs/play/wasm/tool-book.bin` | DSTOOL01 / 14,349 | 516,576 | `a9fd7c297d7517571c7b86344866f9bdbe26d31d7de53f4c33af3ba04777fe4a` |
 | `docs/play/wasm/display-book.bin` | canonical DSBOOK03 / 15,808 | 2,229,033 | `7fa7a6109390a6d5cd08aa25f8301618ee78257d15276663dde83d36d25d42d3` |
 
 TOOL is the supplied round-002 hardening export. AI play uses its proven move without searching; outside TOOL it bypasses DISPLAY's selection shortcuts and runs the existing 3000 ms eval3 search. Analysis-off hints prefer TOOL. DISPLAY feeds the table, overlay and review, with symmetry restoration and unchanged exact/bound/estimate semantics. Either file may fail independently: remaining data stays usable and missing data falls back to search. The previous evaluator remains the fallback if eval3 weights fail to load.
