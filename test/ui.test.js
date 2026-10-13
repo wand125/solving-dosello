@@ -38,11 +38,13 @@ test('play modes are AI black, AI white and two players',()=>{
  assert.deepEqual([...html.match(/<select id="mode">(.*?)<\/select>/)[1].matchAll(/value="(.*?)"/g)].map(m=>m[1]),['black','white','two']);
 });
 
-test('AI time is fixed and review controls are translated without inline handlers',()=>{
+test('AI time and pondering are settings; review controls are translated without inline handlers',()=>{
  const html=readFileSync(new URL('../docs/play/index.html',import.meta.url),'utf8');
  const app=readFileSync(new URL('../docs/play/app.js',import.meta.url),'utf8');
- assert.doesNotMatch(html,/id="time"|data-i18n="time"/);assert.match(app,/timeMs:3000/);
- assert(!('time' in dictionaries.en));assert(!('time' in dictionaries.ja));
+ assert.match(html,/<input id="ai-time" type="number" min="0\.1" max="3600" step="0\.1" value="3"/);
+ assert.match(html,/<input id="ponder" type="checkbox" checked>/);
+ assert.match(app,/AI_SECONDS_MIN=0\.1,AI_SECONDS_MAX=3600/);assert.match(app,/timeMs:aiTurn\?aiMs\(\):3000/);
+ for(const key of ['aiTime','ponder'])for(const lang of ['en','ja'])assert(dictionaries[lang][key]);
  for(const id of ['review','review-panel','review-rows','review-end','review-close'])assert(html.includes(`id="${id}"`));
  assert.doesNotMatch(html,/\sonclick=/);
 });

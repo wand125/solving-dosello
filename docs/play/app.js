@@ -18,6 +18,14 @@ function status(key,extra=''){message=key;detail=extra;$('status').textContent=t
 // AI moves use one long-lived worker that also ponders on the player's turn.
 // Analysis keeps a fresh worker per position, so the two never queue behind each other.
 let engine=null,engineBusy=false;
+// AI time (seconds) and pondering are saved preferences; they apply from the next AI turn.
+const AI_SECONDS_MIN=0.1,AI_SECONDS_MAX=3600;
+function stored(key){try{return localStorage.getItem(key);}catch{return null;}}
+function store(key,value){try{localStorage.setItem(key,value);}catch{}}
+let aiSeconds=Number(stored('dosello-ai-seconds')??3);
+if(!(aiSeconds>=AI_SECONDS_MIN&&aiSeconds<=AI_SECONDS_MAX))aiSeconds=3;
+let pondering=stored('dosello-ponder')!=='0';
+const aiMs=()=>Math.round(aiSeconds*1000);
 function engineWorker(){return engine??=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});}
 function dropEngine(){engine?.terminate();engine=null;engineBusy=false;}
 function cancel(){generation++;worker?.terminate();worker=null;busy=false;if(engineBusy)dropEngine();else engine?.postMessage({kind:'stop'});}
@@ -76,9 +84,14 @@ function refresh(){
   if(!human()&&!paused){const name=toolMove??result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
   else status(paused?'paused':data.bookError?'bookError':'idle');draw();
  };
- target.postMessage({id,position:toOriginal(state()),timeMs:3000,bestOnly:aiTurn,keepTT:aiTurn,sentAt:Date.now()});
- if(!aiTurn&&!paused&&$('mode').value!=='two')engineWorker().postMessage({kind:'ponder',position:toOriginal(state())});
+ target.postMessage({id,position:toOriginal(state()),timeMs:aiTurn?aiMs():3000,bestOnly:aiTurn,keepTT:aiTurn,sentAt:Date.now()});
+ if(!aiTurn)startPonder();
 }
+function canPonder(){return pondering&&!paused&&!review?.active()&&!isGameOver(state())&&$('mode').value!=='two'&&human();}
+function startPonder(){if(canPonder())engineWorker().postMessage({kind:'ponder',position:toOriginal(state()),limitMs:Math.max(60000,10*aiMs())});}
+$('ai-time').value=String(aiSeconds);$('ponder').checked=pondering;
+$('ai-time').onchange=e=>{const v=Number(e.target.value);if(v>=AI_SECONDS_MIN&&v<=AI_SECONDS_MAX){aiSeconds=v;store('dosello-ai-seconds',String(v));}e.target.value=String(aiSeconds);};
+$('ponder').onchange=e=>{pondering=e.target.checked;store('dosello-ponder',pondering?'1':'0');if(pondering)startPonder();else if(!engineBusy)engine?.postMessage({kind:'stop'});};
 const placement=bindPlacement($('board'),{state,enabled:()=>placementEnabled($('mode').value,state().turn,isGameOver(state())),play,select:selectCell});
 new ResizeObserver(()=>{const matrix=$('board').getScreenCTM();$('board').classList.toggle('small-cells',matrix.a*50<38);}).observe($('board'));
 const phone=matchMedia('(max-width:760px), (max-width:960px) and (max-height:500px)');

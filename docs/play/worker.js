@@ -29,11 +29,11 @@ function provenLine(ai,state,move,limit=16){
 // Pondering: while the player thinks, search their position in short slices on
 // a TT kept inside the WASM instance. Each slice yields to the event loop, so a
 // move request waits at most one slice and then reuses the entries.
-const PONDER_SLICE_MS=200,PONDER_LIMIT_MS=60000;
+const PONDER_SLICE_MS=200;
 let ponderId=0;
-async function ponder(position){
+async function ponder(position,limitMs=60000){
  const id=++ponderId,{ai}=await ready,start=performance.now();
- while(id===ponderId&&performance.now()-start<PONDER_LIMIT_MS){
+ while(id===ponderId&&performance.now()-start<limitMs){
   let r;
   try{r=ai.analyze(position,{timeMs:PONDER_SLICE_MS,ttMb:32,bestOnly:true,useBook:false,keepTT:true});}catch{return;}
   if(r.terminal||r.pass||r.moves?.[0]?.exact)return;
@@ -41,7 +41,7 @@ async function ponder(position){
  }
 }
 self.onmessage=async({data})=>{
- if(data.kind==='ponder'){ponder(data.position);return;}
+ if(data.kind==='ponder'){ponder(data.position,data.limitMs);return;}
  ponderId++;
  if(data.kind==='stop')return;
  try{
