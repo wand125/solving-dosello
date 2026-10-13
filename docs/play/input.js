@@ -29,7 +29,7 @@ export function bindPlacement(board,{state,enabled,play,select}){
   if(!drag||!drag.moved)return;
   const {start,target}=drag,a=target===null?start:Math.min(start,target),b=target===null?start:Math.max(start,target);
   const legal=previewMove(state(),start,target),rect=document.createElementNS(board.namespaceURI,'rect');
-  const attrs={class:'placement-preview',x:30+a%8*50+4,y:30+(a>>3)*50+4,width:b-a===1?92:42,height:b-a===8?92:42,rx:7,fill:legal?(state().turn===1?'#292c32':'#fafafa'):'none',stroke:legal?'#657dab':'#d32636','stroke-width':4,'pointer-events':'none','data-legal':String(Boolean(legal))};
+  const attrs={class:'placement-preview',x:30+a%8*50+4,y:30+(a>>3)*50+4,width:b-a===1?92:42,height:b-a===8?92:42,rx:7,fill:legal?(state().turn===1?'#000':'#fff'):'none',stroke:legal?(state().turn===1?'#fff':'#000'):'#d32636','stroke-width':4,'pointer-events':'none','data-legal':String(Boolean(legal))};
   for(const [k,v] of Object.entries(attrs))rect.setAttribute(k,v);
   board.append(rect);
  }

@@ -319,6 +319,20 @@ impl Search {
                 if lower>=beta {return Ok(lower)}
             }
         }
+        // Horizon leaves: no TT probe (leaves are never stored) and no move list,
+        // only the pass/terminal test.
+        if depth==0 && !exact_depth {
+            if !p.has_moves() {
+                let other=p.pass();
+                if !other.has_moves() {return Ok(p.diff()*p.side as i32);}
+                return self.run_key(other,p.pass_hash(key),0,-beta,-alpha).map(|x|-x);
+            }
+            if self.evaluator3.is_some() {
+                let mut state=self.eval_state.unwrap_or_else(||crate::eval3::State::new(p));
+                state.update(p); self.eval_state=Some(state);
+            }
+            return Ok(self.static_value(p));
+        }
         let original_alpha = alpha;
         let old = self.entry_key(p,key);
         let hit = old.bound != 0 && old.position == p;
@@ -329,7 +343,7 @@ impl Search {
             }
         }
         let lazy=depth<=2;
-        let mut ms = if lazy {p.lazy_moves()} else {p.move_list()};
+        let mut ms = MoveList::new(); p.fill_moves(lazy,&mut ms);
         if ms.is_empty() {
             let other = p.pass();
             if other.mobility()==0 {
@@ -368,7 +382,9 @@ impl Search {
                 if let Some(v)=trial? {self.probcut_cuts+=1;return Ok(v)}
             }
         }
-        let mut ranks=[0i32;112];
+        // Rank storage is touched only by ordered (depth >= 3) nodes.
+        let mut rank_buf;
+        let ranks: &mut [i32] = if depth>=3 { rank_buf=[0i32;112]; &mut rank_buf[..] } else { &mut [] };
         if depth>=3 {
             for i in 0..ms.len() {
                 let m=&ms[i];
@@ -868,18 +884,26 @@ pub fn prove_json(p:Position,o:&Options)->String {
 /// Playing mode: iterative PVS at the root spends the whole clock finding the
 /// best move. Analysis mode separately supplies a value for every legal move.
 pub fn choose(p:Position,o:&Options)->Analysis {
+ if p.moves().is_empty(){return analyze(p,o)}
+ let mut s=Search::new(o.tt_entries,0.);s.configure(o);s.set_selectivity(o.selectivity);
+ choose_with(&mut s,p,o)
+}
+/// Like choose, but keeps the caller's TT: pondering on the opponent's turn
+/// leaves entries that the next search reuses.
+pub fn choose_with(s:&mut Search,p:Position,o:&Options)->Analysis {
  let ms=p.moves();if ms.is_empty(){return analyze(p,o)}
- let start=now();let mut s=Search::new(o.tt_entries,start+o.time_ms as f64);s.configure(o);s.set_selectivity(o.selectivity);
+ let start=now();s.deadline=start+o.time_ms as f64;s.aborted=false;
+ let base=s.nodes;
  let fallback=*ms.iter().max_by_key(|m|-s.static_value(p.play(**m))).unwrap();
  let mut best=MoveValue{mv:fallback,value:-s.static_value(p.play(fallback)),exact:false,depth:0,pv:vec![fallback.to_string()],nodes:0};
  let max=(p.empty().count_ones()/2) as u8;
  for d in 1..=max {if now()>=s.deadline{break}
      let Ok(value)=s.run(p,d,-65,65) else{break};
      let mv=if d==max {match s.prove_best(p){Ok((_,Some(m)))=>m,_=>break}}else{let e=s.entry(p);match ms.iter().find(|m|m.id()==e.best){Some(m)=>*m,None=>break}};
-     best=MoveValue{mv,value,exact:d==max,depth:d,pv:s.pv(p,64),nodes:s.nodes};
+     best=MoveValue{mv,value,exact:d==max,depth:d,pv:s.pv(p,64),nodes:s.nodes-base};
  }
- best.nodes=s.nodes;
- Analysis{complete:false,moves:vec![best],nodes:s.nodes,elapsed_ms:now()-start,terminal:false,pass:false,value:None}
+ best.nodes=s.nodes-base;
+ Analysis{complete:false,moves:vec![best],nodes:s.nodes-base,elapsed_ms:now()-start,terminal:false,pass:false,value:None}
 }
 
 /// Fixed worker pool with interior YBWC splits and a helpful master.

@@ -15,7 +15,12 @@ let review;
 const state=()=>states[cursor],t=k=>dictionaries[lang][k];
 const human=()=>($('mode').value==='two')||state().turn===($('mode').value==='black'?1:-1);
 function status(key,extra=''){message=key;detail=extra;$('status').textContent=t(key)+(extra&&(showAnalysis||key!=='candidate')?' '+extra:'');}
-function cancel(){generation++;worker?.terminate();worker=null;busy=false;}
+// AI moves use one long-lived worker that also ponders on the player's turn.
+// Analysis keeps a fresh worker per position, so the two never queue behind each other.
+let engine=null,engineBusy=false;
+function engineWorker(){return engine??=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});}
+function dropEngine(){engine?.terminate();engine=null;engineBusy=false;}
+function cancel(){generation++;worker?.terminate();worker=null;busy=false;if(engineBusy)dropEngine();else engine?.postMessage({kind:'stop'});}
 function draw(){
  for(const id of ['analysis','analysis-quick'])$(id).checked=showAnalysis;
  for(const el of document.querySelectorAll('[data-analysis-only]'))el.hidden=!showAnalysis;
@@ -54,9 +59,11 @@ function refresh(){
  if(review?.active()){status('paused');draw();return;}
  if(isGameOver(state())){const s=score(state());status('over',`${s.black}–${s.white} · ${s.difference===0?t('draw'):t(s.difference>0?'black':'white')+' '+t('wins')}`);draw();review?.auto();return;}
  status(paused?'paused':human()?'loading':'thinking');busy=true;draw();const id=generation;
- worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
- worker.onerror=()=>{if(id!==generation)return;busy=false;status('error');draw();};
- worker.onmessage=({data})=>{
+ const aiTurn=!human()&&!paused,target=aiTurn?engineWorker():new Worker(new URL('./worker.js',import.meta.url),{type:'module'});
+ if(aiTurn)engineBusy=true;else worker=target;
+ target.onerror=()=>{if(aiTurn)dropEngine();if(id!==generation)return;busy=false;status('error');draw();};
+ target.onmessage=({data})=>{
+  if(aiTurn&&data.id===id&&(data.kind!=='book'||data.tool?.bestMove))engineBusy=false;
   if(id!==generation||data.id!==id)return;
   if(data.kind==='error'){busy=false;status('error');draw();return;}
   book=data.book;tool=data.tool;result=data.result??null;const merged=new Map(mergeValues(book,result).map(m=>[m.move,m]));analysis=legalMoves(state()).map(m=>merged.get(formatMove(m))??{move:formatMove(m)});best=bestMoves(analysis);
@@ -69,7 +76,8 @@ function refresh(){
   if(!human()&&!paused){const name=toolMove??result.bestMove??best[0],m=legalMoves(state()).find(m=>formatMove(m)===name);if(m){play(m);return;}status('error');}
   else status(paused?'paused':data.bookError?'bookError':'idle');draw();
  };
- worker.postMessage({id,position:toOriginal(state()),timeMs:3000,bestOnly:!human()&&!paused});
+ target.postMessage({id,position:toOriginal(state()),timeMs:3000,bestOnly:aiTurn,keepTT:aiTurn,sentAt:Date.now()});
+ if(!aiTurn&&!paused&&$('mode').value!=='two')engineWorker().postMessage({kind:'ponder',position:toOriginal(state())});
 }
 const placement=bindPlacement($('board'),{state,enabled:()=>placementEnabled($('mode').value,state().turn,isGameOver(state())),play,select:selectCell});
 new ResizeObserver(()=>{const matrix=$('board').getScreenCTM();$('board').classList.toggle('small-cells',matrix.a*50<38);}).observe($('board'));
@@ -83,7 +91,7 @@ function disclosures(){
 }
 phone.addEventListener('change',disclosures);disclosures();
 $('new').onclick=()=>{review.reset();states=[initialState()];record=[];cursor=0;paused=false;syncSequence();refresh();};
-$('mode').onchange=()=>{review.close();paused=false;refresh();};
+$('mode').onchange=()=>{dropEngine();review.close();paused=false;refresh();};
 function toggleAnalysis(e){showAnalysis=e.target.checked;try{localStorage.setItem('dosello-analysis',showAnalysis?'1':'0');}catch{}const url=new URL(location.href);url.searchParams.set('analysis',showAnalysis?'1':'0');history.replaceState(null,'',url);draw();}
 for(const id of ['analysis','analysis-quick'])$(id).onchange=toggleAnalysis;
 $('hint').onclick=()=>{const choices=!showAnalysis&&tool?.bestMove?[tool.bestMove]:best;hinted=choices[0]??null;status(choices.length?'candidate':'waiting',choices.join(' / '));draw();};

@@ -36,17 +36,28 @@ pub fn api(input: &str) -> Result<String, String> {
         let value_only=opts.and_then(|x|x.get("valueOnly").ok()).map_or(Ok(false),json::Json::boolean)?;
         return Ok(if value_only {search::exact_value_json(p,&o)} else {search::prove_json(p,&o)});
     }
-    Ok((if best_only{search::choose}else{search::analyze})(
-        p,
-        &search::Options {
-            time_ms: time as u64,
-            exact,
-            tt_entries: search::entries_for_mb(tt_mb as usize)?,
-            ..Default::default()
-        },
-    )
-    .json())
+    let keep_tt=opts.and_then(|x|x.get("keepTT").ok()).map_or(Ok(false),json::Json::boolean)?;
+    let o=search::Options {
+        time_ms: time as u64,
+        exact,
+        tt_entries: search::entries_for_mb(tt_mb as usize)?,
+        ..Default::default()
+    };
+    if best_only && keep_tt {
+        return Ok(KEPT.with(|k| {
+            let mut k=k.borrow_mut();
+            if k.as_ref().is_none_or(|(n,_)|*n!=o.tt_entries) {
+                let mut s=search::Search::new(o.tt_entries,0.);s.configure(&o);s.set_selectivity(o.selectivity);
+                *k=Some((o.tt_entries,s));
+            }
+            search::choose_with(&mut k.as_mut().unwrap().1,p,&o)
+        }).json());
+    }
+    Ok((if best_only{search::choose}else{search::analyze})(p,&o).json())
 }
+// Search kept between bestOnly+keepTT calls (pondering). Loading a model drops it.
+thread_local! {static KEPT:RefCell<Option<(usize,search::Search)>>=const{RefCell::new(None)};}
+fn drop_kept(){KEPT.with(|k|*k.borrow_mut()=None)}
 /// Allocate exactly len bytes; caller must return the same pointer and length.
 #[cfg_attr(target_arch = "wasm32", no_mangle)]
 pub extern "C" fn alloc(len: usize) -> *mut u8 {
@@ -120,6 +131,7 @@ pub(crate) fn wasm_eval3()->Option<std::sync::Arc<eval3::Model>> {
 #[cfg(target_arch = "wasm32")]
 #[no_mangle]
 pub unsafe extern "C" fn load_eval3(ptr:*const u8,len:usize)->i32 {
+    drop_kept();
     if len==0 {PROBCUT3.with(|c|*c.borrow_mut()=Default::default());EVAL3_MODEL.with(|m|*m.borrow_mut()=None);return 0;}
     match eval3::Model::decode(std::slice::from_raw_parts(ptr,len)) {
         Ok(model)=>{PROBCUT3.with(|c|*c.borrow_mut()=Default::default());EVAL3_MODEL.with(|m|*m.borrow_mut()=Some(std::sync::Arc::new(model)));0},
@@ -142,6 +154,7 @@ pub(crate) fn wasm_probcut3() -> probcut::Config { PROBCUT3.with(|c|c.borrow().c
 #[no_mangle]
 pub unsafe extern "C" fn load_probcut3(ptr:*const u8,len:usize,confidence:f64)->i32 {
     if !confidence.is_finite() || confidence<=0. {return 1}
+    drop_kept();
     let table = if len==0 {None} else {
         let Some(model)=wasm_eval3() else {return 1};
         let Ok(csv)=std::str::from_utf8(std::slice::from_raw_parts(ptr,len)) else {return 1};

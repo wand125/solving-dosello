@@ -19,7 +19,7 @@ pub struct Move {
 #[derive(Clone)]
 pub struct MoveList { data: [std::mem::MaybeUninit<Move>; 112], len: usize }
 impl MoveList {
-    fn new() -> Self { Self { data: [std::mem::MaybeUninit::uninit();112], len:0 } }
+    pub fn new() -> Self { Self { data: [std::mem::MaybeUninit::uninit();112], len:0 } }
     fn push(&mut self, m: Move) { self.data[self.len].write(m); self.len+=1; }
 }
 impl std::ops::Deref for MoveList {
@@ -150,14 +150,19 @@ impl Position {
     /// anchor one another across an opponent, so their captures are independent.
     #[inline]
     pub fn targets(self)->u64 {
-        let own=self.own(); let opp=self.opp(); let mut out=0;
-        for d in 0..8 {
-            let mut x=shift(own,d)&opp;
-            // A run has at most six opponents between its two endpoints.
-            x|=shift(x,d)&opp; x|=shift(x,d)&opp; x|=shift(x,d)&opp;
-            x|=shift(x,d)&opp; x|=shift(x,d)&opp;
-            out|=shift(x,d);
+        // Kogge-Stone fills: post-shift column masks block wrap-around.
+        #[inline(always)]
+        fn ends(own:u64,opp:u64,k:u32,left:bool,post:u64)->u64 {
+            let s=|x:u64,n:u32| if left {x<<n} else {x>>n};
+            let mut g=own; let mut p=opp&post;
+            g|=p&s(g,k); p&=s(p,k);
+            g|=p&s(g,2*k); p&=s(p,2*k);
+            g|=p&s(g,4*k);
+            s(g&opp,k)&post
         }
+        let own=self.own(); let opp=self.opp();
+        let out=ends(own,opp,9,false,NOT_H)|ends(own,opp,8,false,!0)|ends(own,opp,7,false,NOT_A)|ends(own,opp,1,false,NOT_H)|
+            ends(own,opp,1,true,NOT_A)|ends(own,opp,7,true,NOT_H)|ends(own,opp,8,true,!0)|ends(own,opp,9,true,NOT_A);
         out & self.empty()
     }
     #[inline]
@@ -165,29 +170,36 @@ impl Position {
         let e=self.empty();let t=self.targets();
         ((e&(e>>1)&NOT_H&(t|(t>>1))).count_ones()+(e&(e>>8)&(t|(t>>8))).count_ones()) as i32
     }
-    pub fn move_list(self)->MoveList {
+    #[inline]
+    pub fn has_moves(self)->bool {
+        let e=self.empty();let t=self.targets();
+        (e&(e>>1)&NOT_H&(t|(t>>1)))|(e&(e>>8)&(t|(t>>8)))!=0
+    }
+    pub fn move_list(self)->MoveList {let mut out=MoveList::new();self.fill_moves(false,&mut out);out}
+    /// Placements only, for leaf search and TT-first staging. Fill flips before play.
+    pub fn lazy_moves(self)->MoveList {let mut out=MoveList::new();self.fill_moves(true,&mut out);out}
+    /// In-place generation: search keeps one list per frame instead of copying 1.8 KB.
+    #[inline(always)]
+    pub fn fill_moves(self,lazy:bool,out:&mut MoveList) {
         let e=self.empty(); let t=self.targets();
         let h=e&(e>>1)&NOT_H&(t|(t>>1));let v=e&(e>>8)&(t|(t>>8));
+        let mut starts=h|v;
+        if lazy {
+            while starts!=0 {let a=starts.trailing_zeros() as u8;let bit=1u64<<a;starts&=starts-1;
+                if h&bit!=0 {out.push(Move{a,b:a+1,flips:0});}
+                if v&bit!=0 {out.push(Move{a,b:a+8,flips:0});}
+            }
+            return;
+        }
         let mut needed=(h|h<<1|v|v<<8)&t;
         let mut flips=[0u64;64];
         while needed!=0 {let a=needed.trailing_zeros() as usize;needed&=needed-1;
             let direct=cell_flips(a,self.own(),self.opp()); flips[a]=direct|self.partners(direct);
         }
-        let mut starts=h|v;let mut out=MoveList::new();
         while starts!=0 {let a=starts.trailing_zeros() as u8;let bit=1u64<<a;starts&=starts-1;
             if h&bit!=0 {out.push(Move{a,b:a+1,flips:flips[a as usize]|flips[a as usize+1]});}
             if v&bit!=0 {out.push(Move{a,b:a+8,flips:flips[a as usize]|flips[a as usize+8]});}
-        } out
-    }
-    /// Placements only, for leaf search and TT-first staging. Fill flips before play.
-    pub fn lazy_moves(self)->MoveList {
-        let e=self.empty();let t=self.targets();
-        let h=e&(e>>1)&NOT_H&(t|(t>>1));let v=e&(e>>8)&(t|(t>>8));
-        let mut starts=h|v;let mut out=MoveList::new();
-        while starts!=0 {let a=starts.trailing_zeros() as u8;let bit=1u64<<a;starts&=starts-1;
-            if h&bit!=0 {out.push(Move{a,b:a+1,flips:0});}
-            if v&bit!=0 {out.push(Move{a,b:a+8,flips:0});}
-        } out
+        }
     }
     #[inline]
     pub fn with_flips(self,mut m:Move)->Move {

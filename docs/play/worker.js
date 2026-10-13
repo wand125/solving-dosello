@@ -26,8 +26,27 @@ function provenLine(ai,state,move,limit=16){
  }
  return line;
 }
+// Pondering: while the player thinks, search their position in short slices on
+// a TT kept inside the WASM instance. Each slice yields to the event loop, so a
+// move request waits at most one slice and then reuses the entries.
+const PONDER_SLICE_MS=200,PONDER_LIMIT_MS=60000;
+let ponderId=0;
+async function ponder(position){
+ const id=++ponderId,{ai}=await ready,start=performance.now();
+ while(id===ponderId&&performance.now()-start<PONDER_LIMIT_MS){
+  let r;
+  try{r=ai.analyze(position,{timeMs:PONDER_SLICE_MS,ttMb:32,bestOnly:true,useBook:false,keepTT:true});}catch{return;}
+  if(r.terminal||r.pass||r.moves?.[0]?.exact)return;
+  await new Promise(resolve=>setTimeout(resolve,0));
+ }
+}
 self.onmessage=async({data})=>{
+ if(data.kind==='ponder'){ponder(data.position);return;}
+ ponderId++;
+ if(data.kind==='stop')return;
  try{
+  // A queued request loses the time it waited behind the last ponder slice.
+  const timeMs=Math.max(0,data.timeMs-(data.sentAt?Math.max(0,Date.now()-data.sentAt):0));
   const {ai,bookError,tool}=await ready;
   const toolResult=tool?.lookup(data.position)??null;
   const book=ai.getBook(data.position);
@@ -36,7 +55,7 @@ self.onmessage=async({data})=>{
    for(const m of book.moves)if(m.exact)m.pv=provenLine(ai,root,m.move);
   }
   self.postMessage({id:data.id,kind:'book',book,bookError,tool:toolResult});
-  const result=data.bestOnly&&toolResult?toolResult:ai.analyze(data.position,{timeMs:data.timeMs,ttMb:32,bestOnly:data.bestOnly,useBook:!data.bestOnly});
+  const result=data.bestOnly&&toolResult?toolResult:ai.analyze(data.position,{timeMs,ttMb:32,bestOnly:data.bestOnly,useBook:!data.bestOnly,keepTT:!!data.keepTT});
   self.postMessage({id:data.id,kind:'result',book,result,bookError,tool:toolResult});
  }catch(e){self.postMessage({id:data.id,kind:'error',error:e.message});}
 };

@@ -138,6 +138,23 @@ const fn links() -> ([[Link; INSTANCES]; 64], [usize; 64]) {
     (out, sizes)
 }
 const LINKS: ([[Link; INSTANCES]; 64], [usize; 64]) = links();
+// Dense per-cell digit weights split by instance parity (unrotated, rotated):
+// an update is two 32-lane multiply-adds per changed cell.
+const fn dense() -> [[[u16; INSTANCES]; 2]; 64] {
+    let mut out = [[[0; INSTANCES]; 2]; 64];
+    let mut a = 0;
+    while a < 64 {
+        let mut j = 0;
+        while j < LINKS.1[a] {
+            let l = LINKS.0[a][j];
+            out[a][l.instance as usize % 2][l.instance as usize] = l.power as u16;
+            j += 1;
+        }
+        a += 1;
+    }
+    out
+}
+static DENSE: [[[u16; INSTANCES]; 2]; 64] = dense();
 const fn swaps() -> [u16; TABLE] {
     let mut out = [0; TABLE];
     let mut i = 0;
@@ -191,23 +208,28 @@ impl State {
     }
     pub fn update(&mut self, p: Position) {
         let old = self.position;
-        let mut changed = (old.black ^ p.black)
-            | (old.white ^ p.white)
-            | (old.hleft ^ p.hleft)
-            | ((old.hleft ^ p.hleft) << 1);
+        let (occ_old, occ) = (old.black | old.white, p.black | p.white);
+        let turned = ((old.hleft | (old.hleft << 1)) ^ (p.hleft | (p.hleft << 1))) & occ_old & occ;
+        // Captures only change colour: both orientation readings move by +-2.
+        let recoloured = (old.white ^ p.white) & occ_old & occ & !turned;
+        let mut changed = (occ_old ^ occ) | turned | recoloured;
+        // Wrapping u16 arithmetic is exact: every final index is in range.
+        let mut idx = self.indices;
         while changed != 0 {
             let a = changed.trailing_zeros() as usize;
             changed &= changed - 1;
-            let delta = [
-                state(p, a, false) - state(old, a, false),
-                state(p, a, true) - state(old, a, true),
-            ];
-            for link in &LINKS.0[a][..LINKS.1[a]] {
-                let i = link.instance as usize;
-                self.indices[i] =
-                    (self.indices[i] as i32 + delta[i % 2] * link.power as i32) as u16;
+            let (d0, d1) = if recoloured & (1 << a) != 0 {
+                let d = if p.white & (1 << a) != 0 { 2u16 } else { 2u16.wrapping_neg() };
+                (d, d)
+            } else {
+                ((state(p, a, false) - state(old, a, false)) as u16, (state(p, a, true) - state(old, a, true)) as u16)
+            };
+            let [w0, w1] = &DENSE[a];
+            for i in 0..INSTANCES {
+                idx[i] = idx[i].wrapping_add(w0[i].wrapping_mul(d0)).wrapping_add(w1[i].wrapping_mul(d1));
             }
         }
+        self.indices = idx;
         self.position = p;
     }
 }

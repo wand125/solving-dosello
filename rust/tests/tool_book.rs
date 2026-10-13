@@ -3,7 +3,7 @@ use dosello_ai::{board::Position, book::transform, match_book::MatchBook};
 fn shipped_tool_roundtrip_and_validation() {
     let bytes = include_bytes!("../../docs/play/wasm/tool-book.bin");
     let book = MatchBook::decode(bytes).unwrap();
-    assert_eq!(book.len(), 10977);
+    assert_eq!(book.len(), 15366);
     assert_eq!(book.encode_tool().unwrap(), bytes);
     for t in 0..8 {
         let p = transform(Position::initial(), t);
